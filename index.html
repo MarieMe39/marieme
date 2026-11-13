@@ -1,0 +1,2047 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111214">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MarieMe">
+<title>MarieMe</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+/* =========================================================
+   MarieMe — prototype v0.1
+   Un seul fichier : HTML (structure) + CSS (style) + JS (logique)
+   ========================================================= */
+:root{
+  --bg:#0b1220; --card:#121b2b; --card2:#1a2537; --line:#21304a;
+  --text:#e9eef6; --muted:#93a3ba; --faint:#5f6f87;
+  --blue:#4b8fe8; --blue2:#7d95ee; --sky:#5cb8e6; --teal:#3bb3a6; --orange:#f28c38;
+  --accent:var(--blue); --accent-ink:#fff; --hl:var(--orange);
+  --good:var(--teal); --danger:#e66767;
+  /* phases du cycle (palette validée daltonisme) */
+  --p-regles:#e66767; --p-foll:#2fa58f; --p-ovu:#e0a024; --p-lut:#9085e9;
+  --radius:18px;
+  color-scheme:dark;
+}
+[data-theme=light]{
+  --bg:#f2f5f9; --card:#ffffff; --card2:#eaf0f6; --line:#dde5ee;
+  --text:#132033; --muted:#5b6b80; --faint:#97a4b5;
+  --blue:#2f74d0; --blue2:#5b6fd6; --sky:#2a9bd1; --teal:#1a9488; --orange:#e8761f;
+  --p-regles:#e34948; --p-foll:#1a9488; --p-ovu:#d48f00; --p-lut:#6250d6;
+  color-scheme:light;
+}
+[hidden]{display:none!important}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;font-size:15px;line-height:1.45}
+body{padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left)}
+button{font:inherit;color:inherit}
+.app{max-width:780px;margin:0 auto;padding:18px 16px 120px}
+h1{font-size:28px;font-weight:700;margin:2px 0 0;letter-spacing:-.03em;line-height:1.15}
+h2{font-size:16px;font-weight:650;margin:0 0 12px;letter-spacing:-.01em}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:26px 2px 10px}
+svg.i{width:18px;height:18px;flex:none;vertical-align:-3px}
+h3{font-size:15px;margin:0 0 8px}
+.sub{color:var(--muted);font-size:14px}
+.faint{color:var(--faint);font-size:12px}
+.card{background:var(--card);border-radius:var(--radius);padding:18px;margin:12px 0;border:1px solid var(--line)}
+.row{display:flex;align-items:center;gap:10px}
+.between{justify-content:space-between}
+.wrap{flex-wrap:wrap}
+.grow{flex:1;min-width:0}
+.btn{appearance:none;border:0;background:var(--accent);color:var(--accent-ink);font-weight:600;
+  padding:10px 15px;border-radius:12px;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;justify-content:center}
+.btn.hl{background:var(--hl);color:#fff}
+.btn.ghost{background:var(--card2);color:var(--text)}
+.btn.danger{background:var(--danger);color:#fff}
+.btn.sm{padding:6px 11px;font-size:13px;border-radius:10px}
+.btn.icon{padding:6px 10px;background:var(--card2);color:var(--text)}
+.btn:active{transform:scale(.97)}
+input,textarea,select{font:inherit;color:var(--text);background:var(--card2);border:1px solid var(--line);
+  border-radius:12px;padding:10px 12px;width:100%;outline:none}
+input:focus,textarea:focus,select:focus{border-color:var(--accent)}
+textarea{min-height:84px;resize:vertical}
+label{display:block;font-size:13px;color:var(--muted);margin:12px 0 5px}
+.seg{display:inline-flex;background:var(--card2);border-radius:12px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;padding:6px 12px;border-radius:9px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer}
+.seg button.on{background:var(--card);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.chip{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:var(--card2);
+  border-radius:999px;padding:5px 11px;font-size:13px;cursor:pointer;user-select:none}
+.chip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.badge{font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px;background:var(--card2);color:var(--muted)}
+.badge.warn{background:color-mix(in srgb,var(--orange) 18%,transparent);color:var(--orange)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex:none}
+.dot.pred{background:transparent!important;border:1.5px solid currentColor}
+.empty{color:var(--faint);font-size:14px;padding:6px 0}
+hr{border:0;border-top:1px solid var(--line);margin:14px 0}
+
+/* ---- Tableau de bord ---- */
+.hello{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.rings{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;text-align:center}
+.ring{cursor:pointer;padding:4px 0;border-radius:14px}
+.ring:hover{background:var(--card2)}
+.ring svg{width:100%;max-width:70px;display:block;margin:0 auto}
+.ring .v{font-weight:700;font-size:14px;margin-top:4px}
+.ring .l{font-size:11px;color:var(--muted)}
+.todo{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.todo:last-child{border-bottom:0}
+.check{width:24px;height:24px;border-radius:8px;border:2px solid var(--faint);flex:none;cursor:pointer;display:grid;place-items:center;background:transparent;padding:0}
+.check.on{background:var(--good);border-color:var(--good);color:#fff}
+.todo.done .t{text-decoration:line-through;color:var(--faint)}
+.x{border:0;background:transparent;color:var(--faint);cursor:pointer;font-size:18px;padding:0 4px}
+.savoir .tag{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--hl)}
+.savoir .body p{margin:0 0 10px}
+.cats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media(min-width:620px){.cats{grid-template-columns:repeat(4,1fr)}}
+.cat{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;cursor:pointer;text-align:left;transition:border-color .15s}
+.cat:hover{border-color:var(--blue)}
+.ibox{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:color-mix(in srgb,var(--blue) 14%,transparent);color:var(--blue)}
+.ibox svg{width:20px;height:20px}
+.lock .ibox svg{width:30px;height:30px}
+.cat .n{font-weight:600;margin-top:10px;font-size:14px}
+.cat .c{color:var(--muted);font-size:12px}
+
+/* ---- Agenda ---- */
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.cal .h{font-size:11px;color:var(--muted);text-align:center;padding:4px 0;font-weight:600}
+.cell{aspect-ratio:1/1.05;background:var(--card2);border-radius:12px;padding:5px;cursor:pointer;position:relative;display:flex;flex-direction:column;align-items:center;border:2px solid transparent}
+.cell.out{opacity:.35}
+.cell.today{border-color:var(--hl)}
+.cell.sel{background:var(--accent);color:var(--accent-ink)}
+.cell .plus{position:absolute;top:3px;right:5px;font-size:13px;font-weight:700;line-height:1}
+.cell .num{font-size:14px;font-weight:600}
+.cell .dot{margin-top:3px}
+.cell .ev{display:flex;gap:2px;margin-top:auto}
+.cell .ev i{width:5px;height:5px;border-radius:2px;background:var(--muted)}
+.cell.sel .ev i{background:var(--accent-ink)}
+.week .wd{display:flex;gap:12px;padding:10px;border-radius:14px;cursor:pointer;align-items:flex-start;border:2px solid transparent}
+.week .wd:hover{background:var(--card2)}
+.week .wd.sel{border-color:var(--accent)}
+.week .wd .d{width:46px;flex:none;text-align:center}
+.week .wd .d b{display:block;font-size:20px}
+.week .wd .d small{color:var(--muted);text-transform:capitalize}
+.week .evl{font-size:13px;display:flex;flex-direction:column;gap:3px}
+.year{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+@media(min-width:620px){.year{grid-template-columns:repeat(3,1fr)}}
+.mini{background:var(--card2);border-radius:14px;padding:10px;cursor:pointer}
+.mini .mt{font-size:13px;font-weight:650;text-transform:capitalize;margin-bottom:6px}
+.mini .g{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.mini .g span{aspect-ratio:1;border-radius:3px;background:var(--card);font-size:0}
+.mini .g span.today{outline:2px solid var(--hl)}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted);margin-top:12px}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.moods{display:flex;gap:6px}
+.moods button{flex:1;padding:8px 0;border-radius:12px;border:2px solid transparent;background:var(--card2);cursor:pointer;color:var(--muted);display:grid;place-items:center}
+.moods svg{width:28px;height:28px}
+.moods button.on{color:var(--accent)}
+.moods button.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 18%,var(--card2))}
+.lvl{display:flex;gap:6px}
+.lvl button{flex:1;height:30px;border-radius:9px;border:0;background:var(--card2);cursor:pointer;font-size:12px;color:var(--muted)}
+.lvl button.on{background:var(--blue);color:#fff}
+.mini-in{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.mini-in label{margin:0 0 4px;font-size:11px}
+.mini-in input{padding:8px}
+.ev-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.ev-item:last-child{border-bottom:0}
+.ev-item .time{width:48px;font-weight:700;font-size:13px;flex:none}
+
+/* ---- Stats ---- */
+.tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media(min-width:620px){.tiles{grid-template-columns:repeat(3,1fr)}}
+.tile{background:var(--card2);border-radius:16px;padding:12px}
+.tile .k{font-size:12px;color:var(--muted)}
+.tile .val{font-size:24px;font-weight:700;letter-spacing:-.02em}
+.tile .val small{font-size:13px;color:var(--muted);font-weight:500}
+.chart svg{width:100%;height:auto;display:block}
+.hbar{display:flex;align-items:center;gap:10px;margin:8px 0;font-size:13px}
+.hbar .lab{width:150px;flex:none;display:flex;align-items:center;gap:6px}
+.hbar .track{flex:1;height:12px;border-radius:4px;background:var(--card2);overflow:hidden}
+.hbar .fill{height:100%;border-radius:4px}
+.hbar .num{width:70px;text-align:right;color:var(--muted);flex:none}
+.insight{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:var(--card2);border-radius:14px;margin:8px 0;font-size:14px}
+table.data{width:100%;border-collapse:collapse;font-size:13px}
+table.data th,table.data td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left}
+table.data th{color:var(--muted);font-weight:600}
+#tip{position:fixed;z-index:60;pointer-events:none;background:var(--text);color:var(--bg);font-size:12px;font-weight:600;padding:6px 9px;border-radius:8px;opacity:0;transition:opacity .12s;white-space:nowrap}
+
+/* ---- Bibliothèque ---- */
+.gal{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media(min-width:620px){.gal{grid-template-columns:repeat(3,1fr)}}
+.ph{border-radius:16px;overflow:hidden;background:var(--card2);cursor:pointer;position:relative}
+.ph img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+.ph .cap{position:absolute;left:0;right:0;bottom:0;padding:22px 10px 8px;background:linear-gradient(transparent,rgba(0,0,0,.75));color:#fff;font-size:12px}
+.ph .cap b{display:block;font-size:13px}
+.item{display:flex;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.item:last-child{border-bottom:0}
+.item .ibox{width:34px;height:34px}
+.prog{height:6px;background:var(--card2);border-radius:4px;overflow:hidden;margin-top:5px}
+.prog i{display:block;height:100%;background:var(--blue);border-radius:4px}
+
+/* ---- Disciplines ---- */
+.bigtrace{width:100%;height:auto;display:block}
+svg.big{width:34px;height:34px}
+.noimg{aspect-ratio:1;display:grid;justify-items:center;align-items:start;padding-top:24%;color:var(--blue);background:color-mix(in srgb,var(--blue) 10%,var(--card2))}
+.chip input{accent-color:var(--blue)}
+.subform{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:10px}
+.subform input:first-child{grid-column:1/-1}
+.dgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media(min-width:620px){.dgrid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.dcard{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;cursor:pointer;text-align:left}
+.dcard:hover{border-color:var(--blue)}
+.dcard .t{font-weight:650;font-size:16px;margin-top:10px}
+.sec-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
+.sec-h h2{margin:0;display:flex;align-items:center;gap:8px}
+.sec-h h2 svg{color:var(--blue)}
+.line{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.line:last-child{border-bottom:0}
+.trace{width:46px;height:46px;border-radius:12px;background:var(--card2);flex:none}
+.stat-row{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:13px;color:var(--muted)}
+.stat-row b{color:var(--text);font-weight:600}
+.thumbs{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.thumbs .th{position:relative}
+.thumbs img{width:64px;height:64px;object-fit:cover;border-radius:10px;display:block}
+.thumbs .rm{position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;border:0;background:var(--danger);color:#fff;cursor:pointer;font-size:14px;line-height:1}
+.moods label{flex:1;padding:8px 0;border-radius:12px;border:2px solid transparent;background:var(--card2);cursor:pointer;color:var(--muted);display:grid;place-items:center;margin:0}
+.moods label svg{width:28px;height:28px}
+.moods label:has(input:checked){border-color:var(--accent);color:var(--accent)}
+.moods label input{position:absolute;opacity:0;pointer-events:none}
+.filebtn{display:inline-flex;margin:0;color:var(--text);font-size:14px}
+
+/* ---- Réorganisation par appui long ---- */
+[data-sort]{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+[data-sort].dragging{transform:scale(1.05);box-shadow:0 12px 30px rgba(0,0,0,.35);border-color:var(--hl)!important;position:relative;z-index:3;transition:transform .12s}
+.sorting [data-sort]:not(.dragging){opacity:.7}
+
+/* ---- Navigation ---- */
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:40;background:color-mix(in srgb,var(--card) 88%,transparent);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-top:1px solid var(--line);
+  padding:6px 8px calc(6px + env(safe-area-inset-bottom))}
+nav.tabs .in{max-width:520px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr)}
+nav.tabs button{border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--muted);padding:6px 0;cursor:pointer}
+nav.tabs button svg{width:24px;height:24px}
+nav.tabs button.on{color:var(--hl)}
+
+/* ---- Feuilles modales ---- */
+.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;display:flex;align-items:flex-end;justify-content:center;animation:fade .15s}
+.sheet{background:var(--card);width:100%;max-width:560px;max-height:88vh;overflow:auto;border-radius:24px 24px 0 0;padding:18px 18px calc(20px + env(safe-area-inset-bottom));animation:up .2s ease-out}
+@media(min-width:620px){.sheet-bg{align-items:center}.sheet{border-radius:24px}}
+@keyframes up{from{transform:translateY(40px);opacity:.4}}
+@keyframes fade{from{opacity:0}}
+.toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;font-weight:600;z-index:70;animation:up .2s}
+
+/* ---- Écran verrouillé ---- */
+.lock{min-height:90vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px;padding:20px}
+.lock input{max-width:220px;text-align:center;font-size:24px;letter-spacing:.4em}
+.err{color:var(--danger);font-size:14px;min-height:20px}
+</style>
+</head>
+<body>
+<div class="app" id="main"></div>
+<nav class="tabs" id="tabs" hidden></nav>
+<div id="tip"></div>
+
+<script>
+"use strict";
+/* =========================================================
+   1. OUTILS (dates, texte, identifiants)
+   ========================================================= */
+const $ = (s, r = document) => r.querySelector(s);
+const pad = n => String(n).padStart(2, "0");
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const parse = s => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return iso(d); };
+const diffDays = (a, b) => Math.round((parse(b) - parse(a)) / 86400000); // b - a
+const today = () => iso(new Date());
+const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const MOIS = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+const JOURS = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"];
+const JC = ["L","M","M","J","V","S","D"];
+const fmtLong = s => { const d = parse(s); return `${JOURS[d.getDay()]} ${d.getDate()} ${MOIS[d.getMonth()]} ${d.getFullYear()}`; };
+const MOIS_C = ["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
+const fmtShort = s => { const d = parse(s); return `${d.getDate()} ${MOIS_C[d.getMonth()]}`; };
+const mondayOf = s => { const d = parse(s); const wd = (d.getDay() + 6) % 7; return addDays(s, -wd); };
+const nf = n => Math.round(n).toLocaleString("fr-FR");
+const avg = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0;
+
+/* =========================================================
+   1b. ICÔNES (traits fins, style sobre)
+   ========================================================= */
+const IP = {
+  target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+  mountain: '<path d="M3 20l6.5-11 4 6.5 2.5-4 5 8.5z"/><path d="M8 12.5l1.5 1 1.5-1"/>',
+  scissors: '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.2 8.2L20 20M8.2 15.8L20 4"/>',
+  heart: '<path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z"/>',
+  leaf: '<path d="M5 19C5 10.5 11 5 19.5 5 19.5 13.5 13.5 19 5 19z"/><path d="M5 19l8-8"/>',
+  compass: '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>',
+  gift: '<rect x="4" y="10" width="16" height="10" rx="1"/><rect x="3" y="7" width="18" height="3" rx="1"/><path d="M12 7v13M12 7c-1.5-3-5-3.5-5-1.2C7 7 10 7 12 7zm0 0c1.5-3 5-3.5 5-1.2C17 7 14 7 12 7z"/>',
+  book: '<path d="M4 19V5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5 2.5 2.5 0 0 0 6.5 23"/><path d="M8 7h8"/>',
+  bolt: '<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>',
+  pack: '<path d="M7 9a5 5 0 0 1 10 0v11a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1z"/><path d="M10 4.5V3h4v1.5M9.5 14h5"/>',
+  camera: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
+  pencil: '<path d="M15 5l4 4L9 19H5v-4z"/><path d="M13 7l4 4"/>',
+  note: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/>',
+  pin: '<path d="M12 21s-6.5-6.2-6.5-11.2a6.5 6.5 0 0 1 13 0C18.5 14.8 12 21 12 21z"/><circle cx="12" cy="10" r="2.3"/>',
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.4-4.4"/>',
+  bulb: '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5.6 1.2.6 2.2h6c0-1 0-1.7.6-2.2A6 6 0 0 0 12 3z"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+  drop: '<path d="M12 3.5s6 6.6 6 10.7a6 6 0 0 1-12 0C6 10.1 12 3.5 12 3.5z"/>',
+  pen: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+  moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4 6.5 6.5 0 0 0 20 14.5z"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  down: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+  up: '<path d="M12 15V4M7 9l5-5 5 5M5 20h14"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  hourglass: '<path d="M7 3h10M7 21h10M8 3c0 5 8 6 8 9s-8 4-8 9M16 3c0 5-8 6-8 9s8 4 8 9"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.7 3.9 5.7 3.9 9s-1.3 6.3-3.9 9c-2.6-2.7-3.9-5.7-3.9-9S9.4 5.7 12 3z"/>',
+  columns: '<path d="M3 9l9-5 9 5M5 9v9M9.7 9v9M14.3 9v9M19 9v9M3 21h18"/>',
+  chat: '<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9.5h8M8 12.5h5"/>',
+  atom: '<circle cx="12" cy="12" r="1.6"/><ellipse cx="12" cy="12" rx="9.5" ry="3.8"/><ellipse cx="12" cy="12" rx="9.5" ry="3.8" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="9.5" ry="3.8" transform="rotate(120 12 12)"/>',
+  link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+  cpu: '<rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/><path d="M9 2.5V6M15 2.5V6M9 18v3.5M15 18v3.5M2.5 9H6M2.5 15H6M18 9h3.5M18 15h3.5"/>',
+  drip: '<path d="M12 4s5 5.5 5 9a5 5 0 0 1-10 0c0-3.5 5-9 5-9z"/><path d="M9.5 14a2.5 2.5 0 0 0 2.5 2.5"/>',
+  spark: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6"/>',
+};
+const ico = (n, cls = "i") => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IP[n] || ""}</svg>`;
+const MOUTHS = ["M8 16.5c1.2-1.5 2.6-2.1 4-2.1s2.8.6 4 2.1", "M8.6 15.8c1-.5 2.2-.8 3.4-.8s2.4.3 3.4.8", "M8.6 15h6.8", "M8.6 14.3c1 .9 2.2 1.4 3.4 1.4s2.4-.5 3.4-1.4", "M8 13.8c1 2.1 2.4 3.2 4 3.2s3-1.1 4-3.2"];
+const face = i => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r=".6" fill="currentColor"/><circle cx="15" cy="10" r=".6" fill="currentColor"/><path d="${MOUTHS[i]}"/></svg>`;
+
+/* =========================================================
+   2. CONTENU : catégories, savoirs du jour
+   ========================================================= */
+const CATS = [
+  { id: "goals",    name: "Goals",                 icon: "target", kinds: ["objectif"], view: "life" },
+  { id: "sport",    name: "Activités physiques",   icon: "mountain", kinds: ["discipline"], unit: "sport" },
+  { id: "manuel",   name: "Activités manuelles",   icon: "scissors", kinds: ["discipline"], unit: "activité" },
+  { id: "mecatro",  name: "Mécatro",               icon: "cpu", kinds: ["discipline"], unit: "projet" },
+  { id: "sante",    name: "Santé",                 icon: "heart", kinds: ["objectif", "activite", "note"], view: "health" },
+  { id: "devperso", name: "Développement perso",   icon: "leaf", kinds: ["objectif", "lecture", "activite", "note"], view: "media" },
+  { id: "voyage",   name: "Voyage",                icon: "compass", kinds: ["souvenir", "envie", "materiel"], view: "travel" },
+  { id: "cadeaux",  name: "Liste de cadeaux",      icon: "gift", kinds: ["cadeau"] },
+  { id: "culture",  name: "Culture générale",      icon: "book", kinds: ["savoir", "note", "adecouvrir"], view: "learn" },
+];
+const CAT = Object.fromEntries(CATS.map(c => [c.id, c]));
+const KINDS = {
+  objectif:   { n: "Objectif",        i: "target" },
+  activite:   { n: "Activité",        i: "bolt" },
+  materiel:   { n: "Matériel",        i: "pack" },
+  souvenir:   { n: "Souvenir",        i: "camera" },
+  projet:     { n: "Projet",          i: "pencil" },
+  note:       { n: "Note",            i: "note" },
+  lecture:    { n: "Lecture",         i: "book" },
+  envie:      { n: "Envie de voyage", i: "pin" },
+  cadeau:     { n: "Idée cadeau",     i: "gift" },
+  adecouvrir: { n: "À découvrir",     i: "search" },
+  savoir:     { n: "Savoir du jour",  i: "bulb" },
+  discipline: { n: "Sport / activité", i: "bolt" },
+};
+const TAGS = ["Énergique","Fatiguée","Sereine","Stressée","Motivée","Irritable","Créative","Sociable","Crampes","Maux de tête","Ballonnements","Fringales","Bien dormi","Mal dormi"];
+const MOODS = [0, 1, 2, 3, 4];
+const PHASES = {
+  regles:       { n: "Règles",              c: "var(--p-regles)", w: "pendant tes règles" },
+  folliculaire: { n: "Phase folliculaire",  c: "var(--p-foll)", w: "en phase folliculaire" },
+  ovulation:    { n: "Ovulation (estimée)", c: "var(--p-ovu)", w: "autour de l'ovulation" },
+  luteale:      { n: "Phase lutéale",       c: "var(--p-lut)", w: "en phase lutéale" },
+};
+
+const SAVOIRS = [
+ { t: "Les batteries sodium-ion", th: "Technologie", b: [
+  "Presque toutes nos batteries rechargeables utilisent du lithium. Problème : ce métal est concentré dans quelques pays, son extraction consomme beaucoup d'eau et son prix varie énormément. Les chercheurs cherchent donc des alternatives, et le sodium arrive en tête.",
+  "Le sodium, c'est l'élément du sel de cuisine : on en trouve partout, dans l'eau de mer comme dans le sol. Une batterie sodium-ion fonctionne sur le même principe qu'une lithium-ion : des ions voyagent d'une électrode à l'autre quand on charge ou décharge la batterie. Mais l'ion sodium est plus gros et plus lourd, ce qui oblige à concevoir d'autres matériaux pour l'accueillir.",
+  "Résultat : à poids égal, une batterie sodium stocke moins d'énergie. En revanche, elle supporte mieux le froid, elle est moins sujette à l'emballement thermique (le phénomène qui provoque des incendies) et elle peut être fabriquée sans cobalt ni nickel.",
+  "Les premiers modèles commerciaux sont arrivés au début des années 2020, notamment en Chine. Ils équipent des petites voitures urbaines, des deux-roues et surtout des systèmes de stockage stationnaire, qui gardent l'électricité solaire ou éolienne pour la restituer plus tard. Là, le poids importe peu : c'est le coût et la sécurité qui comptent.",
+  "À retenir : le sodium ne remplacera pas le lithium partout, mais il pourrait devenir la batterie « du quotidien », bon marché et durable." ]},
+ { t: "CRISPR, les ciseaux génétiques", th: "Science", b: [
+  "CRISPR est un outil qui permet de modifier l'ADN avec une précision inédite. Son histoire commence chez les bactéries : pour se défendre contre les virus, elles gardent dans leur génome des fragments de l'ADN viral, comme une galerie de portraits d'ennemis.",
+  "Quand le virus revient, la bactérie fabrique une copie de ce portrait sous forme d'ARN. Cet ARN guide une protéine, Cas9, jusqu'au virus, et Cas9 coupe son ADN. En 2012, Emmanuelle Charpentier et Jennifer Doudna ont compris qu'on pouvait reprogrammer ce guide pour viser n'importe quelle séquence d'ADN. Elles ont reçu le prix Nobel de chimie en 2020.",
+  "Concrètement, on écrit un ARN guide qui correspond au gène visé, on l'associe à Cas9, et la protéine coupe à l'endroit voulu. La cellule répare ensuite la coupure, ce qui permet de désactiver un gène ou d'en corriger une version.",
+  "Les applications sont nombreuses : recherche en laboratoire, plantes plus résistantes, et désormais médecine. Fin 2023, le premier traitement basé sur CRISPR a été autorisé pour soigner la drépanocytose et la bêta-thalassémie, deux maladies du sang.",
+  "Mais modifier l'ADN pose aussi des questions éthiques, surtout lorsque les changements se transmettraient aux générations suivantes. La plupart des pays interdisent ces modifications sur l'embryon humain." ]},
+ { t: "Ton horloge interne", th: "Santé", b: [
+  "Ton corps suit un rythme d'environ 24 heures : le rythme circadien. Il règle l'heure à laquelle tu as sommeil, ta température, ton appétit et la production de nombreuses hormones.",
+  "Le chef d'orchestre se trouve dans le cerveau, dans une petite zone appelée noyau suprachiasmatique, juste au-dessus du croisement des nerfs optiques. Ce n'est pas un hasard : la lumière captée par tes yeux est le principal signal qui remet ton horloge à l'heure chaque jour. Le prix Nobel de médecine 2017 a récompensé trois chercheurs qui ont décrit les gènes de cette horloge.",
+  "Le soir, quand la lumière baisse, ton cerveau libère de la mélatonine, l'hormone qui prépare au sommeil. Les écrans et les lumières fortes retardent cette libération, ce qui décale l'endormissement.",
+  "Trois habitudes simples aident ton horloge : t'exposer à la lumière du jour le matin, garder des horaires de coucher et de lever réguliers (même le week-end), et baisser les lumières une heure avant de dormir.",
+  "Ton cycle menstruel influence aussi le sommeil : en phase lutéale, la température corporelle est un peu plus élevée, ce qui peut rendre le sommeil plus léger. Ton journal de ressenti pourra t'aider à le vérifier sur toi." ]},
+ { t: "Le télescope James Webb", th: "Espace", b: [
+  "Lancé le 25 décembre 2021, le télescope spatial James Webb est le plus grand télescope jamais envoyé dans l'espace. Il ne tourne pas autour de la Terre : il se trouve à environ 1,5 million de kilomètres, en un point d'équilibre appelé L2, où il reste à l'abri de la chaleur du Soleil derrière un pare-soleil grand comme un court de tennis.",
+  "Son miroir principal mesure 6,5 mètres. Trop grand pour tenir dans une fusée, il est fait de 18 segments hexagonaux qui se sont dépliés dans l'espace. Ils sont recouverts d'une fine couche d'or, qui reflète très bien l'infrarouge.",
+  "Pourquoi l'infrarouge ? Parce que la lumière des galaxies les plus lointaines a voyagé si longtemps que l'expansion de l'Univers l'a étirée vers des longueurs d'onde plus grandes. Observer en infrarouge permet donc de remonter le temps, jusqu'à quelques centaines de millions d'années après le Big Bang.",
+  "Webb sert aussi à analyser l'atmosphère des exoplanètes : quand une planète passe devant son étoile, une partie de la lumière traverse son atmosphère, et les molécules présentes y laissent leur signature.",
+  "À retenir : chaque image de Webb est une photo du passé." ]},
+ { t: "Comment pense une IA comme Claude", th: "Technologie", b: [
+  "Les assistants comme Claude reposent sur des « grands modèles de langage ». Leur tâche de base est étonnamment simple : prédire le morceau de texte suivant à partir de ce qui précède.",
+  "Pour apprendre, le modèle lit une immense quantité de textes. À chaque fois qu'il se trompe dans sa prédiction, ses milliards de paramètres sont légèrement ajustés. À force de répétitions, il finit par capter la grammaire, des faits sur le monde, des façons de raisonner et de structurer une explication.",
+  "L'architecture qui a rendu cela possible s'appelle le Transformer, présentée en 2017. Son idée clé, « l'attention », permet au modèle de relier chaque mot à tous les autres mots du texte pour comprendre le contexte : dans « elle a posé le verre sur la table car il était vide », il comprend que « il » désigne le verre.",
+  "Ensuite vient une seconde phase : on apprend au modèle à être utile, honnête et prudent, notamment grâce aux retours de personnes qui évaluent ses réponses.",
+  "La limite à garder en tête : un modèle de langage peut se tromper avec assurance. C'est un excellent partenaire pour apprendre et créer, mais vérifier les informations importantes reste indispensable." ]},
+ { t: "La fusion nucléaire", th: "Énergie", b: [
+  "Le Soleil brille grâce à la fusion : au cœur de l'étoile, des noyaux d'hydrogène fusionnent pour former de l'hélium, et cette réaction libère une énergie colossale. Reproduire ce phénomène sur Terre permettrait de produire de l'électricité avec très peu de déchets radioactifs à longue durée de vie et sans émission de CO₂.",
+  "La difficulté, c'est que les noyaux se repoussent. Pour qu'ils fusionnent, il faut un gaz chauffé à plus de 100 millions de degrés : un plasma. Aucun matériau ne résiste à une telle température, alors on le confine avec des champs magnétiques géants dans une machine en forme d'anneau, le tokamak.",
+  "Le plus grand projet au monde, ITER, est en construction en France, à Cadarache dans les Bouches-du-Rhône, avec 35 pays partenaires. Une autre approche utilise des lasers pour comprimer une minuscule bille de combustible. En décembre 2022, le laboratoire américain NIF a pour la première fois obtenu plus d'énergie de la réaction que celle apportée par les lasers.",
+  "Mais il reste un long chemin avant une centrale : produire plus d'énergie que toute l'installation n'en consomme, tenir la réaction dans la durée et rendre le tout rentable. La plupart des experts parlent de plusieurs décennies." ]},
+ { t: "Ton microbiote intestinal", th: "Santé", b: [
+  "Ton intestin abrite des dizaines de milliers de milliards de micro-organismes, surtout des bactéries : c'est le microbiote intestinal. Leur nombre est du même ordre que celui des cellules de ton corps.",
+  "Ces bactéries ne sont pas des passagères : elles digèrent les fibres que tu ne sais pas digérer toi-même et les transforment en molécules utiles, comme des acides gras qui nourrissent la paroi de l'intestin. Elles participent aussi à l'éducation de ton système immunitaire et produisent certaines vitamines.",
+  "Les chercheurs étudient de près « l'axe intestin-cerveau » : l'intestin et le cerveau communiquent en permanence par le nerf vague, les hormones et le système immunitaire. Des liens ont été observés entre microbiote, stress et humeur, même si beaucoup de mécanismes restent à comprendre.",
+  "Ce qui semble favoriser un microbiote en bonne santé, c'est surtout la diversité : manger varié, beaucoup de végétaux différents (légumes, légumineuses, céréales complètes, fruits), et des aliments fermentés comme le yaourt ou le kéfir.",
+  "Les antibiotiques, utiles quand ils sont nécessaires, perturbent temporairement cet écosystème : c'est une des raisons de ne les prendre que sur prescription." ]},
+ { t: "L'ARN messager", th: "Science", b: [
+  "Dans chacune de tes cellules, l'ADN contient les recettes de toutes tes protéines. Mais l'ADN reste dans le noyau. Pour fabriquer une protéine, la cellule en fait une copie temporaire : l'ARN messager, qui sort du noyau et sert de mode d'emploi aux usines de la cellule.",
+  "L'idée de la médecine à ARN messager est d'apporter directement à la cellule un mode d'emploi choisi, par exemple celui d'une protéine du virus. La cellule la fabrique, le système immunitaire apprend à la reconnaître, puis l'ARN est dégradé en quelques jours. Il n'entre pas dans le noyau et ne modifie pas l'ADN.",
+  "Pendant longtemps, l'ARN injecté provoquait une forte inflammation. Katalin Karikó et Drew Weissman ont découvert qu'en modifiant légèrement une de ses briques, on évitait cette réaction. Leurs travaux ont permis de développer très vite les vaccins contre le Covid-19, et leur ont valu le prix Nobel de médecine 2023.",
+  "Aujourd'hui, la recherche explore l'ARN messager contre d'autres virus, et surtout contre certains cancers, avec des vaccins personnalisés qui apprennent au système immunitaire à reconnaître les cellules tumorales d'un patient." ]},
+ { t: "L'ordinateur quantique", th: "Technologie", b: [
+  "Un ordinateur classique manipule des bits qui valent 0 ou 1. Un ordinateur quantique utilise des qubits, qui obéissent aux lois de la physique quantique.",
+  "Deux propriétés changent tout. La superposition : un qubit peut être dans une combinaison de 0 et de 1 jusqu'à ce qu'on le mesure. L'intrication : plusieurs qubits peuvent être liés de telle façon que leurs états ne se décrivent plus séparément. En combinant les deux, certains algorithmes explorent des problèmes d'une manière impossible pour un ordinateur classique.",
+  "Attention, un ordinateur quantique n'est pas « plus rapide pour tout ». Il est prometteur pour des tâches précises : simuler des molécules pour créer des médicaments ou des matériaux, certains problèmes d'optimisation, et casser une partie des systèmes de chiffrement actuels.",
+  "C'est pour cette dernière raison que de nouveaux standards de cryptographie « post-quantique » ont été publiés aux États-Unis en 2024 : ils doivent résister même à un futur ordinateur quantique.",
+  "Le grand défi reste la fragilité des qubits : la moindre perturbation (chaleur, vibration) détruit leur état. Beaucoup de machines fonctionnent près du zéro absolu, et corriger ces erreurs est aujourd'hui le cœur de la recherche." ]},
+ { t: "Les 4 phases du cycle", th: "Corps", b: [
+  "Le cycle menstruel dure en moyenne 28 jours, mais tout cycle entre environ 21 et 35 jours est considéré comme courant. Il se découpe en quatre phases, pilotées par les hormones.",
+  "1. Les règles (environ 3 à 7 jours) : les hormones sont au plus bas. Fatigue et besoin de repos sont fréquents.",
+  "2. La phase folliculaire : le taux d'œstrogènes remonte pour préparer un ovule. Beaucoup de personnes ressentent un regain d'énergie, de motivation et de sociabilité.",
+  "3. L'ovulation : un pic d'hormone LH libère l'ovule, en général environ 14 jours avant les règles suivantes. C'est pour cela que l'application estime l'ovulation en comptant à rebours depuis la durée moyenne de ton cycle. C'est une estimation, pas une mesure.",
+  "4. La phase lutéale : la progestérone domine, la température corporelle augmente légèrement (de 0,3 à 0,5 °C environ). Appétit plus marqué, sommeil plus léger ou irritabilité peuvent apparaître en fin de phase.",
+  "Chaque corps est différent : c'est justement l'intérêt de noter ton ressenti au quotidien. Après quelques cycles, l'onglet Stats pourra te montrer tes propres tendances. Et si quelque chose t'inquiète (douleurs fortes, cycles très irréguliers), parles-en à un professionnel de santé." ]},
+];
+const readMin = a => Math.max(1, Math.round(a.b.join(" ").split(/\s+/).length / 200));
+const savoirOfDay = s => SAVOIRS[Math.floor(parse(s).getTime() / 86400000) % SAVOIRS.length];
+
+/* =========================================================
+   3. STOCKAGE LOCAL + CHIFFREMENT
+   Les données restent sur l'appareil (IndexedDB).
+   Avec un code, elles sont chiffrées en AES-256-GCM.
+   ========================================================= */
+const DB = {
+  db: null,
+  async open() {
+    try {
+      this.db = await new Promise((res, rej) => {
+        const r = indexedDB.open("marieme", 1);
+        r.onupgradeneeded = () => r.result.createObjectStore("kv");
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+      });
+    } catch (e) { this.db = null; }
+  },
+  async get(k) {
+    if (this.db) return new Promise(res => {
+      try { const q = this.db.transaction("kv").objectStore("kv").get(k); q.onsuccess = () => res(q.result); q.onerror = () => res(undefined); }
+      catch (e) { res(undefined); }
+    });
+    try { const v = localStorage.getItem("marieme_" + k); return v ? JSON.parse(v) : undefined; } catch (e) { return MEM[k]; }
+  },
+  async set(k, v) {
+    if (this.db) return new Promise(res => {
+      try { const tx = this.db.transaction("kv", "readwrite"); tx.objectStore("kv").put(v, k); tx.oncomplete = () => res(true); tx.onerror = () => res(false); }
+      catch (e) { res(false); }
+    });
+    try { localStorage.setItem("marieme_" + k, JSON.stringify(v)); return true; } catch (e) { MEM[k] = v; return false; }
+  },
+};
+const MEM = {};
+const TE = new TextEncoder(), TD = new TextDecoder();
+const b64 = buf => { let s = ""; const a = new Uint8Array(buf); for (let i = 0; i < a.length; i += 0x8000) s += String.fromCharCode.apply(null, a.subarray(i, i + 0x8000)); return btoa(s); };
+const unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const hasCrypto = !!(window.crypto && crypto.subtle);
+async function deriveKey(pin, salt) {
+  const km = await crypto.subtle.importKey("raw", TE.encode(pin), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: 250000, hash: "SHA-256" }, km, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+}
+let S = null, KEY = null, SALT = null;
+
+async function persist() {
+  if (!S) return;
+  const json = JSON.stringify(S);
+  let rec;
+  if (KEY) {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, KEY, TE.encode(json));
+    rec = { enc: true, salt: b64(SALT), iv: b64(iv), ct: b64(ct) };
+  } else rec = { enc: false, data: json };
+  const ok = await DB.set("state", rec);
+  if (!ok) toast("Sauvegarde limitée sur ce navigateur");
+}
+let saveT;
+function save(rerender = true) { clearTimeout(saveT); saveT = setTimeout(persist, 250); if (rerender) render(); }
+
+function defaults() {
+  return {
+    v: 1,
+    profile: { name: "", birth: "", height: "", weight: "", goalSteps: 8000, goalSleep: 8, goalTraining: 30, goalWater: 2000, cycleLen: 28 },
+    settings: { theme: "dark", autoLock: 5 },
+    days: {}, todos: [], events: [], cycle: { days: [] }, library: {}, savoir: {},
+    life: { projects: [], wishes: [], strengths: [], weaknesses: [], evolutions: [] }, health: { meals: [], goals: [] }, media: [], learn: { fiches: [] }, travel: { trips: [], wishes: [], moments: [] },
+  };
+}
+function seed(s) {
+  const t = today();
+  s.todos.push({ id: uid(), text: "Découvrir MarieMe", date: t, done: false });
+  s.todos.push({ id: uid(), text: "Boire un grand verre d'eau", date: t, done: false });
+  s.life.projects.push({ id: uid(), title: "Ma maison", horizon: "", desc: "", progress: 0, photos: [] });
+  s.presets3 = false;
+  return s;
+}
+function normalize(s) {
+  const d = defaults();
+  if (!s) s = seed(d);
+  for (const k in d) if (s[k] === undefined) s[k] = d[k];
+  s.profile = { ...d.profile, ...s.profile };
+  s.settings = { ...d.settings, ...s.settings };
+  if (!s.cycle.days) s.cycle.days = [];
+  for (const [k, v] of Object.entries(d.life)) if (!s.life[k]) s.life[k] = v;
+  for (const [k, v] of Object.entries(d.health)) if (!s.health[k]) s.health[k] = v;
+  if (s.library.goals?.length) { for (const g of s.library.goals) s.life.projects.push({ id: g.id, title: g.title, horizon: g.date || "", desc: g.note || "", progress: g.progress || 0, photos: g.photo ? [g.photo] : [] }); s.library.goals = []; }
+  if (!s.learn) s.learn = { fiches: [] };
+  if (!s.travel) s.travel = { trips: [], wishes: [], moments: [] };
+  if (s.library.voyage?.length) {
+    for (const x of s.library.voyage) {
+      if (x.kind === "souvenir") s.travel.trips.push({ id: x.id, title: x.title, place: x.place || "", start: x.date || "", end: "", note: x.note || "", photos: x.photo ? [x.photo] : [], links: [] });
+      else if (x.kind === "envie") s.travel.wishes.push({ id: x.id, title: x.title, place: x.place || "", note: x.note || "", photos: x.photo ? [x.photo] : [], links: [] });
+    }
+    s.library.voyage = s.library.voyage.filter(x => x.kind !== "souvenir" && x.kind !== "envie");
+  }
+  if (!s.learn.started) { addFichesTo(s, STARTER); s.learn.started = true; }
+  if (!s.presets3) {
+    for (const cid of ["sport", "manuel"]) {
+      const lib = s.library[cid] = s.library[cid] || [];
+      for (const [name, P] of Object.entries(PRESETS[cid])) if (!lib.some(x => x.title.toLowerCase() === name.toLowerCase())) lib.push({ id: uid(), kind: "discipline", title: name, duration: P.d || 0, note: "", goals: [], gear: [], fields: P.f, gpx: !!P.gpx });
+    }
+    s.presets3 = true; s.presets4 = true;
+  }
+  if (!s.presets4) {
+    const lib = s.library.sport = s.library.sport || [], P = PRESETS.sport["Plongée sous-marine"];
+    if (!lib.some(x => /plong/i.test(x.title))) lib.push({ id: uid(), kind: "discipline", title: "Plongée sous-marine", duration: P.d, note: "", goals: [], gear: [], fields: P.f, gpx: false });
+    s.presets4 = true;
+  }
+  // v0.2 : les activités de Sport et Manuel deviennent des « disciplines » avec objectifs, matériel, séances
+  for (const cid of ["sport", "manuel"]) for (const it of (s.library[cid] || [])) {
+    if (it.kind === "activite") it.kind = "discipline";
+    if (it.kind === "discipline") { it.goals = it.goals || []; it.gear = it.gear || []; if (!it.fields) { const P = PRESETS[cid]?.[it.title]; it.fields = P ? P.f : (cid === "sport" ? ["distance"] : []); it.gpx = P ? !!P.gpx : cid === "sport"; } }
+  }
+  return s;
+}
+
+/* =========================================================
+   4. LOGIQUE MÉTIER
+   ========================================================= */
+const getDay = d => S.days[d] || {};
+const setDay = (d, patch) => { S.days[d] = { ...getDay(d), ...patch }; };
+const eventsOn = d => S.events.filter(e => e.date === d).sort((a, b) => (a.time || "99").localeCompare(b.time || "99"));
+const trainingOf = d => Math.max(Number(getDay(d).exApple) || 0, (Number(getDay(d).training) || 0) + S.events.filter(e => e.date === d && e.done && e.cat === "sport").reduce((a, e) => a + (Number(e.duration) || 0), 0));
+const todosOn = d => S.todos.filter(x => (!x.done && x.date === d) || (x.done && x.doneDate === d));
+
+// Les tâches non faites des jours passés glissent au lendemain (jusqu'à aujourd'hui)
+// Le savoir du jour est archivé dans Culture générale pour pouvoir le relire
+function archiveSavoir() {
+  const t = today(), a = savoirOfDay(t), lib = S.library.culture = S.library.culture || [];
+  if (!lib.some(x => x.kind === "savoir" && x.date === t)) { lib.push({ id: uid(), kind: "savoir", title: a.t, date: t, place: "", note: a.th + "\n\n" + a.b.join("\n\n"), done: !!S.savoir[t] }); return true; }
+  return false;
+}
+function carryOver() {
+  const t = today(); let n = 0;
+  for (const x of S.todos) if (!x.done && x.date < t) { x.carried = (x.carried || 0) + diffDays(x.date, t); x.date = t; n++; }
+  return n;
+}
+
+// Cycle : on déduit les débuts de règles des jours notés
+function cycleInfo() {
+  const days = [...new Set(S.cycle.days)].sort();
+  const starts = [], lens = [];
+  let runStart = null, prev = null;
+  for (const d of days) {
+    if (!(prev && diffDays(prev, d) === 1)) { if (runStart) lens.push(diffDays(runStart, prev) + 1); runStart = d; starts.push(d); }
+    prev = d;
+  }
+  if (runStart) lens.push(diffDays(runStart, prev) + 1);
+  const gaps = [];
+  for (let i = 1; i < starts.length; i++) { const g = diffDays(starts[i - 1], starts[i]); if (g >= 18 && g <= 45) gaps.push(g); }
+  const lastGaps = gaps.slice(-6), lastLens = lens.slice(-6);
+  const cycleLen = lastGaps.length ? Math.round(avg(lastGaps)) : (Number(S.profile.cycleLen) || 28);
+  const periodLen = lastLens.length ? Math.max(3, Math.round(avg(lastLens))) : 5;
+  return { set: new Set(days), starts, cycleLen, periodLen };
+}
+function phaseOf(d, ci) {
+  if (!ci.starts.length) return null;
+  let s = null;
+  for (const st of ci.starts) { if (st <= d) s = st; else break; }
+  if (!s) return null;
+  let n = diffDays(s, d), pred = d > today();
+  if (ci.set.has(d)) return { p: "regles", pred: false, day: n + 1 };
+  const isLast = s === ci.starts[ci.starts.length - 1];
+  if (n >= ci.cycleLen) {
+    if (!isLast) return { p: "luteale", pred: false, day: n + 1 };
+    if (n >= ci.cycleLen * 4) return null;   // on ne prédit que 3 cycles à l'avance
+    pred = true; n = n % ci.cycleLen;
+  }
+  const day = n + 1, ovu = ci.cycleLen - 14;
+  let p;
+  if (pred && day <= ci.periodLen) p = "regles";
+  else if (day >= ovu - 1 && day <= ovu + 1) p = "ovulation";
+  else if (day < ovu - 1) p = "folliculaire";
+  else p = "luteale";
+  return { p, pred, day };
+}
+const phaseDot = ph => ph ? `<i class="dot${ph.pred ? " pred" : ""}" style="background:${PHASES[ph.p].c};color:${PHASES[ph.p].c}" title="${PHASES[ph.p].n}${ph.pred ? " (prévision)" : ""}"></i>` : "";
+const allItems = () => CATS.flatMap(c => (S.library[c.id] || []).map(it => ({ ...it, cat: c.id })));
+
+/* =========================================================
+   5. ÉTAT DE L'INTERFACE
+   ========================================================= */
+const V = { tab: "home", agView: "mois", sel: today(), cursor: today(), range: 7, cat: null, kind: "all", readOpen: false, disc: null, subject: null, tTab: "trips", savAll: false, galSort: "desc", galYear: "all", mType: "all", mStatus: "all", media: null };
+
+const ICONS = {
+  home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>',
+  agenda: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+  stats: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 20V11M12 20V4M19 20v-6"/></svg>',
+  profil: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>',
+};
+function renderTabs() {
+  const T = [["home", "Accueil"], ["agenda", "Agenda"], ["stats", "Stats"], ["profil", "Profil"]];
+  $("#tabs").innerHTML = `<div class="in">${T.map(([k, n]) => `<button data-act="tab" data-k="${k}" class="${V.tab === k && !V.cat ? "on" : ""}">${ICONS[k]}${n}</button>`).join("")}</div>`;
+}
+function render() {
+  if (!S) return;
+  document.documentElement.dataset.theme = S.settings.theme;
+  const y = window.scrollY;
+  $("#main").innerHTML = V.cat ? (V.disc ? viewDisc() : viewCat()) : ({ home: viewHome, agenda: viewAgenda, stats: viewStats, profil: viewProfil })[V.tab]();
+  renderTabs();
+  window.scrollTo(0, y);
+}
+
+/* =========================================================
+   6. VUE : TABLEAU DE BORD
+   ========================================================= */
+function ring(val, goal, label, valTxt, k, color) {
+  const pct = goal ? Math.min(1, val / goal) : 0, C = 2 * Math.PI * 29;
+  return `<div class="ring" data-act="editStat" data-k="${k}" role="button" aria-label="${label} : ${valTxt}">
+    <svg viewBox="0 0 72 72"><circle cx="36" cy="36" r="29" fill="none" stroke="var(--card2)" stroke-width="7"/>
+    ${pct > 0 ? `<circle cx="36" cy="36" r="29" fill="none" stroke="${color}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${(C * pct).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 36 36)"/>` : ""}
+    <text x="36" y="41" text-anchor="middle" font-size="14" font-weight="700" fill="var(--text)">${Math.round(pct * 100)}%</text></svg>
+    <div class="v">${valTxt}</div><div class="l">${label}</div></div>`;
+}
+function todoRow(x, showDate) {
+  return `<div class="todo ${x.done ? "done" : ""}">
+    <button class="check ${x.done ? "on" : ""}" data-act="toggleTodo" data-id="${x.id}" aria-label="Cocher">${x.done ? "✓" : ""}</button>
+    <div class="grow"><span class="t">${esc(x.text)}</span>
+      ${x.carried && !x.done ? ` <span class="badge warn">reportée ${x.carried > 1 ? "×" + x.carried : ""}</span>` : ""}
+      ${showDate ? ` <span class="faint">${fmtShort(x.date)}</span>` : ""}</div>
+    <button class="x" data-act="delTodo" data-id="${x.id}" aria-label="Supprimer">×</button></div>`;
+}
+function todoBlock(d, title) {
+  const list = todosOn(d).sort((a, b) => a.done - b.done);
+  const done = list.filter(x => x.done).length;
+  return `<div class="card"><div class="row between"><h2 style="margin:0">${title}</h2><span class="badge">${done}/${list.length}</span></div>
+    <div style="margin-top:6px">${list.length ? list.map(x => todoRow(x)).join("") : `<div class="empty">Rien de prévu. Ajoute une tâche ci-dessous.</div>`}</div>
+    <form class="row" data-form="addTodo" data-date="${d}" style="margin-top:10px"><input name="t" placeholder="Nouvelle tâche…" autocomplete="off"><button class="btn">Ajouter</button></form></div>`;
+}
+function viewHome() {
+  const t = today(), d = getDay(t), p = S.profile;
+  const list = todosOn(t), done = list.filter(x => x.done).length;
+  const ci = cycleInfo(), ph = phaseOf(t, ci);
+  const a = savoirOfDay(t), read = S.savoir[t] === a.t;
+  const nRead = Object.keys(S.savoir).length;
+  const h = new Date().getHours();
+  const hello = h < 6 ? "Bonne nuit" : h < 18 ? "Bonjour" : "Bonsoir";
+  return `
+  <div class="hello"><div><div class="sub" style="text-transform:capitalize">${fmtLong(t)}</div><h1>${hello} ${esc(p.name)}</h1>
+    ${ph ? `<div class="row" style="margin-top:6px;font-size:13px;color:var(--muted)">${phaseDot(ph)} ${PHASES[ph.p].n} · jour ${ph.day}</div>` : ""}</div>
+    <button class="btn icon" data-act="lockNow" title="Verrouiller" aria-label="Verrouiller" ${KEY ? "" : "hidden"}>${ico("lock")}</button></div>
+
+  <div class="card"><div class="rings">
+    ${ring(Number(d.steps) || 0, p.goalSteps, "Pas", nf(Number(d.steps) || 0), "steps", "var(--blue)")}
+    ${ring(Number(d.sleep) || 0, p.goalSleep, "Sommeil", (Math.round((Number(d.sleep) || 0) * 10) / 10).toString().replace(".", ",") + " h", "sleep", "var(--blue2)")}
+    ${ring(trainingOf(t), p.goalTraining, "Entraîn.", trainingOf(t) + " min", "training", "var(--teal)")}
+    ${ring(Number(d.water) || 0, p.goalWater, "Eau", ((Number(d.water) || 0) / 1000).toFixed(2).replace(".", ",") + " L", "water", "var(--sky)")}
+    ${ring(done, list.length || 1, "Tâches", `${done}/${list.length}`, "tasks", "var(--orange)")}
+  </div>
+  <div class="row wrap" style="margin-top:12px;justify-content:center">
+    <button class="btn ghost sm" data-act="addWater" data-v="250">${ico("drop")} +250 ml</button>
+    <button class="btn ghost sm" data-act="addWater" data-v="500">${ico("drop")} +500 ml</button>
+    <button class="btn ghost sm" data-act="tab" data-k="agenda">${ico("pen")} Mon ressenti</button>
+    <button class="btn ghost sm" data-act="healthImport">${ico("heart")} Importer Santé</button>
+  </div></div>
+
+  ${todoBlock(t, "To do du jour")}
+
+  <div class="card savoir">
+    <div class="row between"><span class="tag">Savoir du jour · ${a.th}</span><span class="faint">≈ ${readMin(a)} min</span></div>
+    <h2 style="margin:6px 0 8px;font-size:20px">${a.t}</h2>
+    <div class="body">${(V.readOpen ? a.b : a.b.slice(0, 1)).map(x => `<p>${x}</p>`).join("")}</div>
+    <div class="row between">
+      <button class="btn ghost sm" data-act="toggleRead">${V.readOpen ? "Réduire" : "Lire la suite"}</button>
+      <button class="btn sm ${read ? "ghost" : "hl"}" data-act="markRead">${read ? "✓ Appris" : "J'ai appris"}</button>
+    </div>
+    <div class="faint" style="margin-top:8px">${nRead} savoir${nRead > 1 ? "s" : ""} appris au total · retrouve-les tous dans Culture générale</div>
+  </div>
+
+  ${(() => { const qs = S.media.flatMap(m => (m.quotes || []).map(q => ({ ...q, m }))); if (!qs.length) return ""; const q = qs[Math.floor(Date.now() / 86400000) % qs.length];
+    return `<div class="card savoir"><span class="tag">Citation du jour</span><p style="font-size:17px;line-height:1.45;margin:8px 0 4px">« ${esc(q.title)} »</p><div class="faint">${esc(q.m.title)}${q.m.author ? " · " + esc(q.m.author) : ""}</div></div>`; })()}
+  <div class="row between"><div class="eyebrow">Mon espace</div><span class="faint" style="margin-top:16px">Maintiens appuyé pour déplacer</span></div>
+  <div class="cats" data-sortbox="cats">${ordered(CATS, S.settings.catOrder).map(c => `<button class="cat" data-act="openCat" data-k="${c.id}" data-sort="${c.id}">
+    <div class="ibox">${ico(c.icon)}</div><div class="n">${c.name}</div><div class="c">${(S.library[c.id] || []).length} élément(s)</div></button>`).join("")}</div>`;
+}
+
+/* =========================================================
+   7. VUE : AGENDA (semaine / mois / année)
+   ========================================================= */
+function viewAgenda() {
+  const ci = cycleInfo(), cur = parse(V.cursor);
+  let title, body;
+  if (V.agView === "semaine") {
+    const m = mondayOf(V.cursor), e = addDays(m, 6);
+    title = `${fmtShort(m)} – ${fmtShort(e)}`;
+    body = `<div class="week">${[...Array(7)].map((_, i) => {
+      const d = addDays(m, i), dd = parse(d), evs = eventsOn(d), td = todosOn(d).filter(x => !x.done).length, md = getDay(d).mood;
+      return `<div class="wd ${d === V.sel ? "sel" : ""}" data-act="selDay" data-d="${d}">
+        <div class="d"><small>${JOURS[dd.getDay()].slice(0, 3)}</small><b style="${d === today() ? "color:var(--accent)" : ""}">${dd.getDate()}</b>${phaseDot(phaseOf(d, ci))}</div>
+        <div class="grow evl">${evs.map(e => `<span class="row" style="gap:6px"><i class="dot" style="background:${e.kind === "rdv" ? "var(--orange)" : "var(--blue)"}"></i>${e.time ? `<b>${e.time}</b>` : ""} ${esc(e.title)}</span>`).join("") || `<span class="faint">—</span>`}
+        ${td ? `<span class="faint">${td} tâche(s) à faire</span>` : ""}</div>
+        <span style="width:24px;flex:none;color:var(--muted)">${md ? face(md - 1) : ""}</span>
+        <button class="btn icon sm" data-act="addOn" data-d="${d}" aria-label="Ajouter le ${dd.getDate()}">${ico("plus")}</button></div>`;
+    }).join("")}</div>`;
+  } else if (V.agView === "mois") {
+    title = `${MOIS[cur.getMonth()]} ${cur.getFullYear()}`;
+    const first = iso(new Date(cur.getFullYear(), cur.getMonth(), 1)), start = mondayOf(first);
+    body = `<div class="cal">${JC.map(j => `<div class="h">${j}</div>`).join("")}${[...Array(42)].map((_, i) => {
+      const d = addDays(start, i), dd = parse(d), n = eventsOn(d).length;
+      return `<div class="cell ${dd.getMonth() !== cur.getMonth() ? "out" : ""} ${d === today() ? "today" : ""} ${d === V.sel ? "sel" : ""}" data-act="selDay" data-d="${d}">
+        ${d === V.sel ? `<span class="plus" aria-hidden="true">+</span>` : ""}<span class="num">${dd.getDate()}</span>${phaseDot(phaseOf(d, ci))}<span class="ev">${"<i></i>".repeat(Math.min(n, 3))}</span></div>`;
+    }).join("")}</div>`;
+  } else {
+    title = String(cur.getFullYear());
+    body = `<div class="year">${MOIS.map((mn, mi) => {
+      const first = iso(new Date(cur.getFullYear(), mi, 1)), off = (parse(first).getDay() + 6) % 7, nd = new Date(cur.getFullYear(), mi + 1, 0).getDate();
+      let cells = "<span style='visibility:hidden'></span>".repeat(off);
+      for (let k = 1; k <= nd; k++) {
+        const d = iso(new Date(cur.getFullYear(), mi, k)), ph = phaseOf(d, ci);
+        cells += `<span class="${d === today() ? "today" : ""}" style="${ph ? `background:${PHASES[ph.p].c};opacity:${ph.pred ? .35 : .85}` : ""}"></span>`;
+      }
+      return `<div class="mini" data-act="openMonth" data-m="${mi}"><div class="mt">${mn}</div><div class="g">${cells}</div></div>`;
+    }).join("")}</div>`;
+  }
+  const legend = `<div class="legend">${Object.values(PHASES).map(p => `<span><i class="dot" style="background:${p.c}"></i>${p.n}</span>`).join("")}<span><i class="dot pred" style="color:var(--muted)"></i>Prévision</span></div>`;
+  return `
+  <div class="row between wrap"><h1>Agenda</h1>
+    <div class="seg">${["semaine", "mois", "année"].map(v => `<button class="${V.agView === v ? "on" : ""}" data-act="agView" data-k="${v}">${v[0].toUpperCase() + v.slice(1)}</button>`).join("")}</div></div>
+
+  ${todoBlock(V.sel, V.sel === today() ? "To do du jour" : "To do · " + fmtShort(V.sel))}
+
+  <div class="card">
+    <div class="row between" style="margin-bottom:12px">
+      <button class="btn icon" data-act="nav" data-v="-1" aria-label="Précédent">‹</button>
+      <div class="row"><h2 style="margin:0;text-transform:capitalize">${title}</h2><button class="btn ghost sm" data-act="goToday">Aujourd'hui</button></div>
+      <button class="btn icon" data-act="nav" data-v="1" aria-label="Suivant">›</button>
+    </div>
+    ${body}${legend}
+    ${V.agView === "mois" ? `<div class="faint" style="margin-top:10px">Touche une date pour la voir, touche-la une 2e fois pour y ajouter une activité ou un rendez-vous.</div>` : ""}
+  </div>
+
+  ${dayPanel(V.sel, ci)}`;
+}
+function dayPanel(d, ci) {
+  const dd = getDay(d), ph = phaseOf(d, ci), isP = ci.set.has(d), evs = eventsOn(d);
+  return `
+  <div class="card">
+    <div class="row between wrap"><h2 style="margin:0;text-transform:capitalize">${fmtLong(d)}</h2>
+      <button class="btn sm ${isP ? "" : "ghost"}" data-act="togglePeriod" data-d="${d}" style="${isP ? "background:var(--p-regles);color:#fff" : ""}">${ico("drip")} ${isP ? "Jour de règles ✓" : "Noter règles"}</button></div>
+    ${ph ? `<div class="row" style="margin-top:8px;font-size:13px;color:var(--muted)">${phaseDot(ph)} ${PHASES[ph.p].n} · jour ${ph.day} du cycle${ph.pred ? " (prévision)" : ""}</div>` : `<div class="faint" style="margin-top:6px">Note tes jours de règles pour voir les phases de ton cycle apparaître.</div>`}
+
+    <label>Humeur</label>
+    <div class="moods">${MOODS.map(i => `<button class="${dd.mood === i + 1 ? "on" : ""}" data-act="setDayV" data-d="${d}" data-k="mood" data-v="${i + 1}" aria-label="Humeur ${i + 1} sur 5">${face(i)}</button>`).join("")}</div>
+    <label>Énergie</label>
+    <div class="lvl">${[1, 2, 3, 4, 5].map(i => `<button class="${(dd.energy || 0) >= i ? "on" : ""}" data-act="setDayV" data-d="${d}" data-k="energy" data-v="${i}">${i}</button>`).join("")}</div>
+    <label>Ce que je ressens</label>
+    <div class="row wrap" style="gap:6px">${TAGS.map(t => `<span class="chip ${(dd.tags || []).includes(t) ? "on" : ""}" data-act="toggleTag" data-d="${d}" data-k="${esc(t)}">${esc(t)}</span>`).join("")}</div>
+    <label>Mon ressenti de la journée</label>
+    <textarea data-ch="note" data-d="${d}" placeholder="Comment s'est passée ta journée ? Ce qui t'a fait du bien, ce qui t'a pesé…">${esc(dd.note || "")}</textarea>
+    <label>Mes données du jour</label>
+    <div class="mini-in">
+      <div><label>Pas</label><input type="number" inputmode="numeric" min="0" data-ch="dayval" data-d="${d}" data-k="steps" value="${dd.steps ?? ""}"></div>
+      <div><label>Sommeil (h)</label><input type="number" inputmode="decimal" step="0.25" min="0" max="24" data-ch="dayval" data-d="${d}" data-k="sleep" value="${dd.sleep != null ? Math.round(dd.sleep * 100) / 100 : ""}"></div>
+      <div><label>Eau (ml)</label><input type="number" inputmode="numeric" step="50" min="0" data-ch="dayval" data-d="${d}" data-k="water" value="${dd.water ?? ""}"></div>
+      <div><label>Sport (min)</label><input type="number" inputmode="numeric" min="0" data-ch="dayval" data-d="${d}" data-k="training" value="${dd.training ?? ""}"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row between"><h2 style="margin:0">Programme</h2><button class="btn sm hl" data-act="newEvent" data-d="${d}">${ico("plus")} Ajouter</button></div>
+    <div style="margin-top:6px">${evs.length ? evs.map(e => `<div class="ev-item">
+      <button class="check ${e.done ? "on" : ""}" data-act="toggleEvent" data-id="${e.id}" aria-label="Fait">${e.done ? "✓" : ""}</button>
+      <div class="time">${e.time || "—"}</div>
+      <div class="grow" ${e.libId && findItem(e.libId)[1]?.kind === "discipline" ? `data-act="editSeance" data-id="${e.id}" style="cursor:pointer"` : ""}><div style="font-weight:600">${esc(e.title)}</div>
+        <div class="faint row" style="gap:6px"><i class="dot" style="background:${e.kind === "rdv" ? "var(--orange)" : "var(--blue)"}"></i>${e.kind === "rdv" ? "Rendez-vous" : "Activité"} · ${CAT[e.cat]?.name || "Autre"}${e.duration ? " · " + e.duration + " min" : ""}</div></div>
+      <button class="x" data-act="delEvent" data-id="${e.id}" aria-label="Supprimer">×</button></div>`).join("") : `<div class="empty">Aucun rendez-vous ni activité.</div>`}</div>
+  </div>`;
+}
+
+/* =========================================================
+   8. VUE : STATISTIQUES
+   ========================================================= */
+function barChart(dates, vals, goal, color, unit, fmt = nf) {
+  const W = 600, H = 170, padL = 34, padB = 22, padT = 10, n = vals.length;
+  const max = Math.max(goal || 0, ...vals, 1) * 1.1;
+  const bw = (W - padL) / n, barW = Math.max(2, Math.min(28, bw - 2));
+  const y = v => padT + (H - padT - padB) * (1 - v / max);
+  const ticks = [0, max / 2, max].map(v => `<line x1="${padL}" x2="${W}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${padL - 6}" y="${y(v) + 4}" text-anchor="end" font-size="10" fill="var(--muted)">${fmt(v)}</text>`).join("");
+  const step = Math.ceil(n / 7);
+  const bars = vals.map((v, i) => {
+    const x = padL + i * bw + (bw - barW) / 2, top = y(v), h = Math.max(0, H - padB - top), r = Math.min(4, barW / 2, h);
+    const path = h > 0 ? `M${x},${H - padB} V${top + r} Q${x},${top} ${x + r},${top} H${x + barW - r} Q${x + barW},${top} ${x + barW},${top + r} V${H - padB} Z` : "";
+    return `<g data-tip="${fmtShort(dates[i])} : ${fmt(v)} ${unit}"><rect x="${padL + i * bw}" y="${padT}" width="${bw}" height="${H - padT - padB}" fill="transparent"/>${path ? `<path d="${path}" fill="${color}"/>` : ""}</g>
+      ${i % step === 0 ? `<text x="${x + barW / 2}" y="${H - 6}" text-anchor="middle" font-size="10" fill="var(--muted)">${parse(dates[i]).getDate()}/${parse(dates[i]).getMonth() + 1}</text>` : ""}`;
+  }).join("");
+  const gl = goal ? `<line x1="${padL}" x2="${W}" y1="${y(goal)}" y2="${y(goal)}" stroke="var(--text)" stroke-width="1" stroke-dasharray="4 4" opacity=".55"/><text x="${W}" y="${y(goal) - 4}" text-anchor="end" font-size="10" fill="var(--muted)">objectif</text>` : "";
+  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img">${ticks}${bars}${gl}</svg></div>`;
+}
+function viewStats() {
+  const t = today(), n = V.range, p = S.profile;
+  const dates = [...Array(n)].map((_, i) => addDays(t, i - n + 1));
+  const val = k => dates.map(d => Number(getDay(d)[k]) || 0);
+  const steps = val("steps"), sleep = val("sleep"), water = val("water"), train = dates.map(trainingOf);
+  const nz = a => a.filter(v => v > 0);
+  const tasksDone = S.todos.filter(x => x.done && x.doneDate >= dates[0]).length;
+  const moodDays = dates.filter(d => getDay(d).mood).length;
+
+  // Répartition des activités par catégorie
+  const evs = S.events.filter(e => e.date >= dates[0] && e.date <= t);
+  const byCat = CATS.map(c => { const l = evs.filter(e => e.cat === c.id); return { c, n: l.length, min: l.reduce((a, e) => a + (Number(e.duration) || 0), 0) }; }).filter(x => x.n).sort((a, b) => b.n - a.n);
+  const maxN = Math.max(1, ...byCat.map(x => x.n));
+
+  // Analyse ressenti × cycle (sur tout l'historique)
+  const ci = cycleInfo();
+  const all = Object.keys(S.days).filter(d => d <= t).sort();
+  const byPh = {};
+  for (const d of all) {
+    const dd = S.days[d]; if (!dd.mood && !dd.energy && !(dd.tags || []).length) continue;
+    const ph = phaseOf(d, ci); if (!ph) continue;
+    (byPh[ph.p] = byPh[ph.p] || []).push(dd);
+  }
+  const insights = [];
+  for (const [k, l] of Object.entries(byPh)) {
+    if (l.length < 3) continue;
+    const cnt = {}; l.forEach(dd => (dd.tags || []).forEach(tg => cnt[tg] = (cnt[tg] || 0) + 1));
+    for (const [tg, c] of Object.entries(cnt)) if (c >= 3 && c / l.length >= .5) insights.push(`Tu notes souvent <b>« ${esc(tg)} »</b> ${PHASES[k].w} (${c} jours sur ${l.length}).`);
+  }
+  const ms = all.map(d => S.days[d]).filter(dd => dd.mood && dd.sleep);
+  const good = ms.filter(dd => dd.sleep >= 7).map(dd => dd.mood), bad = ms.filter(dd => dd.sleep < 7).map(dd => dd.mood);
+  if (good.length >= 3 && bad.length >= 3 && avg(good) - avg(bad) >= .5) insights.push(`Ton humeur est en moyenne meilleure les jours où tu as dormi 7 h ou plus (${avg(good).toFixed(1)} contre ${avg(bad).toFixed(1)} sur 5).`);
+
+  const f1 = v => v.toFixed(1).replace(".", ",");
+  return `
+  <div class="row between wrap"><h1>Statistiques</h1>
+    <div class="seg">${[7, 30, 90].map(r => `<button class="${V.range === r ? "on" : ""}" data-act="range" data-v="${r}">${r} j</button>`).join("")}</div></div>
+
+  <div class="card"><div class="tiles">
+    <div class="tile"><div class="k">Pas / jour</div><div class="val">${nf(avg(nz(steps)))}</div></div>
+    <div class="tile"><div class="k">Sommeil moyen</div><div class="val">${f1(avg(nz(sleep)))} <small>h</small></div></div>
+    <div class="tile"><div class="k">Eau / jour</div><div class="val">${f1(avg(nz(water)) / 1000)} <small>L</small></div></div>
+    <div class="tile"><div class="k">Entraînement total</div><div class="val">${nf(train.reduce((a, b) => a + b, 0))} <small>min</small></div></div>
+    <div class="tile"><div class="k">Tâches accomplies</div><div class="val">${tasksDone}</div></div>
+    <div class="tile"><div class="k">Jours avec ressenti</div><div class="val">${moodDays}<small> / ${n}</small></div></div>
+  </div><div class="faint" style="margin-top:8px">Les moyennes ne comptent que les jours renseignés.</div></div>
+
+  <div class="card"><h2>Pas</h2>${barChart(dates, steps, p.goalSteps, "var(--blue)", "pas")}</div>
+  <div class="card"><h2>Sommeil</h2>${barChart(dates, sleep, p.goalSleep, "var(--blue2)", "h", v => f1(v))}</div>
+  <div class="card"><h2>Eau bue</h2>${barChart(dates, water.map(v => v / 1000), p.goalWater / 1000, "var(--sky)", "L", v => f1(v))}</div>
+  <div class="card"><h2>Entraînement</h2>${barChart(dates, train, p.goalTraining, "var(--teal)", "min")}</div>
+
+  <div class="card"><h2>Répartition des activités</h2>
+    ${byCat.length ? byCat.map(x => `<div class="hbar" data-tip="${x.c.name} : ${x.n} activité(s), ${x.min} min">
+      <span class="lab">${ico(x.c.icon)} ${x.c.name}</span><span class="track"><span class="fill" style="display:block;width:${x.n / maxN * 100}%;background:var(--blue)"></span></span>
+      <span class="num">${x.n} · ${x.min} min</span></div>`).join("") : `<div class="empty">Ajoute des activités dans ton agenda pour voir leur répartition ici.</div>`}
+  </div>
+
+  <div class="card"><h2>Mon corps & mon ressenti</h2>
+    ${Object.keys(byPh).length ? `<table class="data"><thead><tr><th>Phase</th><th>Jours notés</th><th>Humeur moy.</th><th>Énergie moy.</th></tr></thead><tbody>
+      ${Object.keys(PHASES).filter(k => byPh[k]).map(k => { const l = byPh[k], mo = l.filter(x => x.mood).map(x => x.mood), en = l.filter(x => x.energy).map(x => x.energy);
+        return `<tr><td><span class="row" style="gap:6px"><i class="dot" style="background:${PHASES[k].c}"></i>${PHASES[k].n}</span></td><td>${l.length}</td><td>${mo.length ? f1(avg(mo)) + " / 5" : "—"}</td><td>${en.length ? f1(avg(en)) + " / 5" : "—"}</td></tr>`; }).join("")}
+      </tbody></table>` : ""}
+    ${insights.length ? insights.map(i => `<div class="insight"><span style="color:var(--hl)">${ico("bulb")}</span><div>${i}</div></div>`).join("") :
+      `<div class="empty">Les analyses apparaîtront ici quand tu auras noté ton ressenti et tes règles pendant quelques semaines. Plus tu remplis, plus les tendances seront fiables.</div>`}
+  </div>`;
+}
+
+/* =========================================================
+   9. VUE : BIBLIOTHÈQUE D'UNE CATÉGORIE
+   ========================================================= */
+function viewCat() {
+  const vw = CAT[V.cat].view;
+  if (vw === "life") return viewLife();
+  if (vw === "health") return viewHealth();
+  if (vw === "media") return viewMedia();
+  if (vw === "travel") return viewTravel();
+  if (vw === "learn") return V.subject ? viewSubject() : viewLearn();
+  if (CAT[V.cat].kinds[0] === "discipline") return viewDiscList();
+  const c = CAT[V.cat], items = S.library[c.id] || [];
+  const list = V.kind === "all" ? items : items.filter(x => x.kind === V.kind);
+  const photos = list.filter(x => x.photo), others = list.filter(x => !x.photo);
+  return `
+  <div class="row between"><button class="btn icon" data-act="closeCat">‹ Retour</button><button class="btn sm hl" data-act="newItem">${ico("plus")} Ajouter</button></div>
+  <div class="row" style="margin-top:14px"><div class="ibox">${ico(c.icon)}</div><h1>${c.name}</h1></div>
+  <div class="row wrap" style="gap:6px;margin:12px 0">
+    <span class="chip ${V.kind === "all" ? "on" : ""}" data-act="kind" data-k="all">Tout</span>
+    ${c.kinds.map(k => `<span class="chip ${V.kind === k ? "on" : ""}" data-act="kind" data-k="${k}">${ico(KINDS[k].i)} ${KINDS[k].n}</span>`).join("")}
+  </div>
+  ${photos.length ? `<div class="card"><h2>Galerie</h2><div class="gal">${photos.sort((a, b) => (b.date || "").localeCompare(a.date || "")).map(x => `
+    <div class="ph" data-act="editItem" data-id="${x.id}"><img src="${x.photo}" alt="${esc(x.title)}"><div class="cap"><b>${esc(x.title)}</b>${x.place ? esc(x.place) : ""}${x.date ? " · " + fmtShort(x.date) : ""}</div></div>`).join("")}</div></div>` : ""}
+  <div class="card">${others.length ? others.map(x => `
+    <div class="item" data-act="editItem" data-id="${x.id}"><div class="ibox">${ico(KINDS[x.kind]?.i)}</div>
+      <div class="grow"><div style="font-weight:600;${x.done ? "text-decoration:line-through;color:var(--faint)" : ""}">${esc(x.title)}</div>
+        <div class="faint">${KINDS[x.kind]?.n || ""}${x.person ? " · pour " + esc(x.person) : ""}${x.price ? " · " + esc(x.price) + " €" : ""}${x.duration ? " · " + x.duration + " min" : ""}${x.place ? " · " + esc(x.place) : ""}${x.date ? " · " + fmtShort(x.date) : ""}</div>
+        ${x.kind === "objectif" ? `<div class="prog"><i style="width:${Number(x.progress) || 0}%"></i></div>` : ""}</div>
+      ${x.kind === "activite" ? `<button class="btn ghost sm" data-act="planItem" data-id="${x.id}">Planifier</button>` : ""}</div>`).join("")
+    : (photos.length ? `<div class="empty">Pas d'autres éléments.</div>` : `<div class="empty">Ta bibliothèque est vide. Ajoute un premier élément avec « + Ajouter ».</div>`)}</div>`;
+}
+function itemForm(it) {
+  const c = CAT[V.cat], k = it.kind;
+  const f = (lab, name, type = "text", extra = "") => `<label>${lab}</label><input name="${name}" type="${type}" value="${esc(it[name] ?? "")}" ${extra}>`;
+  return `<form data-form="saveItem" data-id="${it.id || ""}">
+    <div class="row between"><h2 style="margin:0">${it.id ? "Modifier" : "Ajouter"}</h2><button type="button" class="x" data-act="closeSheet">×</button></div>
+    ${c.kinds.length > 1 ? `<label>Type</label><select name="kind" data-ch="itemKind">${c.kinds.map(x => `<option value="${x}" ${x === k ? "selected" : ""}>${KINDS[x].n}</option>`).join("")}</select>` : `<input type="hidden" name="kind" value="${k}">`}
+    ${k === "discipline" ? f(LABELS[c.id].name, "title", "text", `required list="presets" data-ch="discTitle" placeholder="${c.id === "sport" ? "Randonnée, ski, moto…" : c.id === "manuel" ? "Couture, poterie, dessin…" : "Bras robotisé, station météo…"}"`) : f("Titre", "title", "text", 'required placeholder="Nom"')}
+    ${k === "discipline" ? `${Object.keys(PRESETS[c.id] || {}).length ? `<datalist id="presets">${Object.keys(PRESETS[c.id]).map(n => `<option value="${n}">`).join("")}</datalist>` : ""}
+      ${c.id === "mecatro" ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 10px"><div><label>Avancement</label><select name="status">${STATUSES.map(x => `<option ${it.status === x ? "selected" : ""}>${x}</option>`).join("")}</select></div><div>${f("Domaines", "domains", "text", 'placeholder="Méca, élec, code…"')}</div></div>` + f("Lien (dépôt, plans, doc)", "link", "url", 'placeholder="https://…"') : ""}
+      ${CAT_FIELDS[c.id].length ? `<label>À noter à chaque ${LABELS[c.id].one.toLowerCase()}</label><div class="row wrap" style="gap:6px">${CAT_FIELDS[c.id].map(x => `<label class="chip" style="margin:0"><input type="checkbox" name="f_${x}" style="width:auto;margin:0" ${(it.fields || PRESETS[c.id]?.[it.title]?.f || []).includes(x) ? "checked" : ""}> ${FIELDS[x].l.replace(/ \(.*\)/, "")}</label>`).join("")}
+        ${c.id === "sport" ? `<label class="chip" style="margin:0"><input type="checkbox" name="gpx" style="width:auto;margin:0" ${discGpx(it) ? "checked" : ""}> Itinéraire GPX</label>` : ""}</div>
+        <div class="faint" style="margin-top:6px">La durée, le lieu, le ressenti, les notes et les photos sont toujours disponibles.</div>` : ""}` : ""}
+    ${(k === "activite" || k === "discipline") && c.id !== "mecatro" ? f("Durée habituelle d'une séance (min)", "duration", "number", 'min="0"') : ""}
+    ${k === "discipline" && c.id === "mecatro" ? `<label>Photos du projet (croquis, plans, montage…)</label><label class="btn ghost sm filebtn">${ico("camera")} Ajouter des photos<input type="file" accept="image/*" multiple data-ch="seancePhotos" hidden></label><div class="thumbs" id="sphotos">${thumbsHtml()}</div>
+      <div class="faint" style="margin-top:6px">Le temps passé se calcule tout seul à partir des sessions cochées dans ton agenda.</div>` : ""}
+    ${k === "objectif" ? `<label>Progression : <b id="pv">${Number(it.progress) || 0}%</b></label><input name="progress" type="range" min="0" max="100" step="5" value="${Number(it.progress) || 0}" oninput="pv.textContent=this.value+'%'">` + f("Échéance", "date", "date") : ""}
+    ${k === "cadeau" ? f("Pour qui ?", "person") + f("Prix estimé (€)", "price", "number", 'min="0" step="0.01"') + f("Lien ou boutique", "link") : ""}
+    ${["souvenir", "envie", "projet"].includes(k) ? f("Lieu", "place", "text", 'placeholder="Ville, pays…"') : ""}
+    ${["souvenir", "projet", "lecture", "savoir"].includes(k) ? f("Date", "date", "date") : ""}
+    ${["souvenir", "projet", "envie", "materiel", "cadeau"].includes(k) ? `<label>Photo</label><input type="file" accept="image/*" data-ch="photo">
+      <div id="phprev" style="margin-top:8px">${it.photo ? `<img src="${it.photo}" style="max-width:140px;border-radius:12px">` : ""}</div><input type="hidden" name="photo" value="">` : ""}
+    <label>Notes</label><textarea name="note" style="${k === "savoir" ? "min-height:300px" : ""}" placeholder="${k === "discipline" ? (c.id === "mecatro" ? "Objectif du projet, cahier des charges…" : "Ce que j'aime dans cette activité, mes repères…") : "Détails, idées, matériel nécessaire…"}">${esc(it.note || "")}</textarea>
+    ${["objectif", "cadeau", "materiel", "envie", "lecture", "adecouvrir", "projet", "savoir"].includes(k) ? `<label class="row" style="gap:8px;color:var(--text)"><input type="checkbox" name="done" style="width:auto" ${it.done ? "checked" : ""}> ${k === "cadeau" ? "Offert" : k === "materiel" ? "Acheté / possédé" : "Terminé"}</label>` : ""}
+    <div class="row" style="margin-top:16px">${it.id ? `<button type="button" class="btn danger" data-act="delItem" data-id="${it.id}">Supprimer</button>` : ""}<span class="grow"></span><button class="btn">Enregistrer</button></div>
+  </form>`;
+}
+
+/* =========================================================
+   9b. SPORTS & ACTIVITÉS : liste, fiche, séances, galerie
+   ========================================================= */
+const seancesOf = id => S.events.filter(e => e.libId === id);
+const fmtDur = m => { m = Math.round(m || 0); const h = Math.floor(m / 60); return h ? `${h} h ${pad(m % 60)}` : `${m} min`; };
+const fmtKm = v => (Math.round((v || 0) * 10) / 10).toString().replace(".", ",") + " km";
+/* Champs possibles d'une séance, selon le sport ou l'activité */
+const FIELDS = {
+  distance:  { l: "Distance (km)", type: "number", step: "0.01", sum: "Distance totale", fmt: v => `<b>${fmtKm(v)}</b>`, tot: v => fmtKm(v) },
+  elevation: { l: "Dénivelé + (m)", type: "number", sum: "Dénivelé cumulé", fmt: v => `<b>${nf(v)} m</b> D+`, tot: v => nf(v) + " m" },
+  nights:    { l: "Nuits", type: "number", sum: "Nuits dehors", fmt: v => `<b>${v}</b> nuit${v > 1 ? "s" : ""}`, tot: v => v },
+  camp:      { l: "Altitude du bivouac (m)", type: "number", fmt: v => `camp à <b>${nf(v)} m</b>` },
+  jumps:     { l: "Nombre de sauts", type: "number", sum: "Sauts", fmt: v => `<b>${v}</b> saut${v > 1 ? "s" : ""}`, tot: v => v },
+  altitude:  { l: "Hauteur de largage (m)", type: "number", fmt: v => `largage <b>${nf(v)} m</b>` },
+  snow:      { l: "Conditions de neige", type: "text", fmt: v => esc(v) },
+  style:     { l: "Style / cours", type: "text", fmt: v => esc(v) },
+  depth:     { l: "Profondeur max (m)", type: "number", fmt: v => `<b>${v} m</b> de fond` },
+  exercises: { l: "Exercices / séries", type: "textarea" },
+  moves:     { l: "Figures travaillées", type: "textarea" },
+  project:   { l: "Projet / œuvre", type: "text", fmt: v => `<b>${esc(v)}</b>` },
+  materials: { l: "Matériaux & techniques", type: "text", fmt: v => esc(v) },
+};
+const PRESETS = {
+  sport: {
+    "Randonnée": { f: ["distance", "elevation"], gpx: 1, d: 180 }, "Bivouac": { f: ["distance", "elevation", "nights", "camp"], gpx: 1, d: 0 },
+    "Renforcement musculaire": { f: ["exercises"], d: 45 }, "Pole dance": { f: ["moves"], d: 60 },
+    "Ski": { f: ["snow"], d: 240 }, "Snowboard": { f: ["snow"], d: 240 }, "Splitboard": { f: ["distance", "elevation", "snow"], gpx: 1, d: 300 },
+    "Parachute": { f: ["jumps", "altitude"], d: 0 }, "Moto": { f: ["distance"], gpx: 1, d: 120 },
+    "Yoga": { f: ["style"], d: 45 }, "Course à pied": { f: ["distance"], gpx: 1, d: 45 }, "Plongée sous-marine": { f: ["depth"], d: 50 },
+  },
+  manuel: { "Couture": { f: ["project", "materials"], d: 90 }, "Sculpture": { f: ["project", "materials"], d: 120 }, "Dessin": { f: ["project", "materials"], d: 60 }, "Poterie": { f: ["project", "materials"], d: 120 } },
+  mecatro: {},
+};
+const CAT_FIELDS = { sport: ["distance", "elevation", "nights", "camp", "jumps", "altitude", "snow", "depth", "style", "exercises", "moves"], manuel: ["project", "materials"], mecatro: [] };
+const LABELS = {
+  sport:   { goals: "Objectifs", gear: "Matériel", log: "Historique des séances", one: "Séance", add: "Nouveau sport", name: "Nom du sport", gearPh: "Équipement…", gearEmpty: "Liste ton équipement : sac, tente, chaussures…", goalEmpty: "Ex. « Faire le GR20 », « Un bivouac par mois »" },
+  manuel:  { goals: "Projets à réaliser", gear: "Matériel & fournitures", log: "Historique des sessions", one: "Session", add: "Nouvelle activité", name: "Nom de l'activité", gearPh: "Outil, fourniture…", gearEmpty: "Machine, outils, tissus, terres, pinceaux…", goalEmpty: "Ex. « Coudre une robe », « Tourner un service de bols »" },
+  mecatro: { goals: "Étapes", gear: "Composants", log: "Journal de bord", one: "Entrée", add: "Nouveau projet", name: "Nom du projet", gearPh: "Composant (ex. Arduino Nano)…", gearEmpty: "Liste les composants : cartes, capteurs, moteurs, visserie…", goalEmpty: "Ex. « Modéliser la pièce en CAO », « Câbler les capteurs »" },
+};
+const STATUSES = ["Idée", "En cours", "En pause", "Terminé"];
+const discFields = it => it?.fields || PRESETS[findItem(it?.id)[0]]?.[it?.title]?.f || [];
+const discGpx = it => it?.gpx ?? !!(PRESETS.sport[it?.title]?.gpx);
+function seanceStats(e) {
+  const it = findItem(e.libId)[1], fl = discFields(it);
+  const bits = [e.duration ? `<b>${fmtDur(e.duration)}</b>` : ""];
+  for (const k of fl) if (e[k] && FIELDS[k].fmt) bits.push(FIELDS[k].fmt(e[k]));
+  if (fl.includes("distance") && e.distance && e.duration && /course/i.test(it?.title || "")) { const p = e.duration / e.distance; bits.push(`${Math.floor(p)}'${pad(Math.round((p % 1) * 60))}"/km`); }
+  if (e.place) bits.push(esc(e.place));
+  return bits.filter(Boolean).join("<span>·</span>");
+}
+function traceSvg(track, W = 46, H = 46, cls = "trace") {
+  if (!track || track.length < 2) return "";
+  const k = Math.cos(track[0][0] * Math.PI / 180), P = W > 100 ? 14 : 6;
+  const xs = track.map(p => p[1] * k), ys = track.map(p => -p[0]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const sc = Math.min((W - 2 * P) / ((x1 - x0) || 1e-9), (H - 2 * P) / ((y1 - y0) || 1e-9));
+  const ox = (W - (x1 - x0) * sc) / 2, oy = (H - (y1 - y0) * sc) / 2;
+  const pts = track.map((p, i) => `${(ox + (xs[i] - x0) * sc).toFixed(1)},${(oy + (ys[i] - y0) * sc).toFixed(1)}`);
+  const end = W > 100 ? `<circle cx="${pts[0].split(",")[0]}" cy="${pts[0].split(",")[1]}" r="4" fill="var(--teal)"/><circle cx="${pts.at(-1).split(",")[0]}" cy="${pts.at(-1).split(",")[1]}" r="4" fill="var(--orange)"/>` : "";
+  return `<svg class="${cls}" viewBox="0 0 ${W} ${H}"><polyline points="${pts.join(" ")}" fill="none" stroke="var(--blue)" stroke-width="${W > 100 ? 2.5 : 1.8}" stroke-linejoin="round" stroke-linecap="round"/>${end}</svg>`;
+}
+const catHeader = (c, right = "") => `<div class="row between"><button class="btn icon" data-act="closeCat">‹ Retour</button>${right}</div>
+  <div class="row" style="margin-top:14px"><div class="ibox">${ico(c.icon)}</div><h1>${c.name}</h1></div>`;
+function viewDiscList() {
+  const c = CAT[V.cat], L = LABELS[c.id], items = (S.library[c.id] || []).filter(x => x.kind === "discipline"), others = (S.library[c.id] || []).filter(x => x.kind !== "discipline");
+  return `${catHeader(c, `<button class="btn sm hl" data-act="newItem">${ico("plus")} ${L.add}</button>`)}
+  <div class="faint" style="margin-top:10px">Maintiens une carte appuyée pour la déplacer.</div>
+  <div class="dgrid" style="margin-top:10px" data-sortbox="disc:${c.id}">${items.map(it => {
+    const done = seancesOf(it.id).filter(e => e.done), last = done.map(e => e.date).sort().pop();
+    const mins = done.reduce((a, e) => a + (Number(e.duration) || 0), 0);
+    return `<button class="dcard" data-act="openDisc" data-id="${it.id}" data-sort="${it.id}"><div class="row between"><div class="ibox">${ico(c.icon)}</div>${it.status ? `<span class="badge">${esc(it.status)}</span>` : ""}</div><div class="t">${esc(it.title)}</div>
+      <div class="faint">${done.length} ${L.one.toLowerCase()}${done.length > 1 ? "s" : ""}${mins ? " · " + fmtDur(mins) : ""}</div>
+      <div class="faint">${last ? "Dernière : " + fmtShort(last) : "Rien encore"}</div></button>`;
+  }).join("") || `<div class="empty" style="grid-column:1/-1">Commence avec « ${L.add} ».</div>`}</div>
+  ${others.length ? `<div class="eyebrow">Autres éléments</div><div class="card">${others.map(x => `<div class="item" data-act="editItem" data-id="${x.id}"><div class="ibox">${ico(KINDS[x.kind]?.i)}</div><div class="grow"><div style="font-weight:600">${esc(x.title)}</div><div class="faint">${KINDS[x.kind]?.n || ""}</div></div></div>`).join("")}</div>` : ""}`;
+}
+function subLines(scope, list, items, opt = {}) {
+  return items.map(g => `<div class="line">
+    ${opt.check ? `<button class="check ${g.done ? "on" : ""}" data-act="toggleSub" data-scope="${scope}" data-list="${list}" data-id="${g.id}" aria-label="Fait">${g.done ? "✓" : ""}</button>` : ""}
+    <div class="grow" ${opt.open ? `data-act="openEnt" data-kind="${opt.open}" data-id="${g.id}" style="cursor:pointer;${g.done ? "color:var(--faint)" : ""}"` : `style="${g.done ? "text-decoration:line-through;color:var(--faint)" : ""}"`}>${opt.dateFirst && g.date ? `<div class="faint">${fmtShort(g.date)} ${g.date.slice(0, 4)}</div>` : ""}<div style="font-weight:500">${esc(g.title)}${!opt.dateFirst && g.date ? ` <span class="faint">· ${fmtShort(g.date)}</span>` : ""}</div>${g.note && !opt.open ? `<div class="faint">${esc(g.note)}</div>` : ""}${opt.open && ((g.photos || []).length || (g.links || []).length || g.done) ? `<div class="faint">${[g.done ? "réalisé ✓" : "", (g.photos || []).length ? (g.photos || []).length + " photo(s)" : "", (g.links || []).length ? (g.links || []).length + " lien(s)" : ""].filter(Boolean).join(" · ")}</div>` : ""}</div>
+    ${opt.open && g.photos?.[0] ? `<img src="${g.photos[0]}" alt="" style="width:40px;height:40px;border-radius:10px;object-fit:cover">` : ""}
+    ${opt.own ? `<span class="chip ${g.owned ? "on" : ""}" data-act="toggleSub" data-scope="${scope}" data-list="${list}" data-id="${g.id}">${g.owned ? "Possédé" : "À acheter"}</span>` : ""}
+    <button class="x" data-act="delSub" data-scope="${scope}" data-list="${list}" data-id="${g.id}" aria-label="Supprimer">×</button></div>`).join("");
+}
+function subCard(scope, list, items, title, icon, ph, empty, opt = {}) {
+  return `<div class="card"><div class="sec-h"><h2>${ico(icon)} ${title}</h2>${items.length ? `<span class="badge">${items.length}</span>` : ""}</div>
+    ${items.length ? subLines(scope, list, items, opt) : `<div class="empty">${empty}</div>`}
+    <form class="subform" data-form="addSub" data-scope="${scope}" data-list="${list}"><input name="t" placeholder="${ph}" autocomplete="off">${opt.dateField ? `<input name="d" type="date" ${opt.dateToday ? `value="${today()}"` : ""}>` : opt.noteField ? `<input name="n" placeholder="${opt.noteField}" autocomplete="off">` : "<span></span>"}<button class="btn" aria-label="Ajouter">${ico("plus")}</button></form></div>`;
+}
+function viewDisc() {
+  const c = CAT[V.cat], L = LABELS[c.id], it = (S.library[c.id] || []).find(x => x.id === V.disc);
+  if (!it) { V.disc = null; return viewDiscList(); }
+  const fl = discFields(it);
+  const all = seancesOf(it.id), done = all.filter(e => e.done).sort((a, b) => (b.date + (b.time || "")).localeCompare(a.date + (a.time || "")));
+  const next = all.filter(e => !e.done && e.date >= today()).sort((a, b) => a.date.localeCompare(b.date));
+  const sum = k => done.reduce((a, e) => a + (Number(e[k]) || 0), 0);
+  const photos = [...(it.photos || []).map((src, i) => ({ src, i, e: null })), ...done.flatMap(e => (e.photos || []).map((src, i) => ({ src, i, e })))];
+  const years = [...new Set(photos.filter(p => p.e).map(p => p.e.date.slice(0, 4)))].sort().reverse();
+  let gal = photos.filter(p => V.galYear === "all" || (p.e && p.e.date.startsWith(V.galYear)));
+  gal.sort((a, b) => { const da = a.e?.date || "0", db = b.e?.date || "0"; return V.galSort === "desc" ? db.localeCompare(da) : da.localeCompare(db); });
+  const sorted = it.goals.slice().sort((a, b) => a.done - b.done);
+  return `
+  <div class="row between"><button class="btn icon" data-act="closeDisc">‹ ${c.name}</button><button class="btn ghost sm" data-act="editItem" data-id="${it.id}">${ico("pen")} Modifier</button></div>
+  <div class="row" style="margin-top:14px"><div class="ibox">${ico(c.icon)}</div><h1>${esc(it.title)}</h1></div>
+  ${it.status || it.domains || it.link ? `<div class="row wrap" style="gap:6px;margin-top:10px">${it.status ? `<span class="chip on">${esc(it.status)}</span>` : ""}${it.domains ? `<span class="chip">${esc(it.domains)}</span>` : ""}${it.link ? `<a class="chip" href="${esc(it.link)}" target="_blank" rel="noopener">Lien du projet ↗</a>` : ""}</div>` : ""}
+  ${it.note ? `<p class="sub" style="margin:10px 0 0;white-space:pre-line">${esc(it.note)}</p>` : ""}
+
+  <div class="card"><div class="tiles">
+    <div class="tile"><div class="k">${L.one}s</div><div class="val">${done.length}</div></div>
+    <div class="tile"><div class="k">Temps total</div><div class="val" style="font-size:20px">${fmtDur(sum("duration"))}</div></div>
+    ${fl.filter(k => FIELDS[k].sum && sum(k)).map(k => `<div class="tile"><div class="k">${FIELDS[k].sum}</div><div class="val" style="font-size:20px">${FIELDS[k].tot(sum(k))}</div></div>`).join("")}
+  </div></div>
+
+  <div class="card"><div class="sec-h"><h2>${ico("target")} ${L.goals}</h2><span class="badge">${it.goals.filter(g => !g.done).length} en cours</span></div>
+    ${sorted.length ? subLines("disc", "goals", sorted, { check: true, open: "goal" }) : `<div class="empty">${L.goalEmpty}</div>`}
+    <form class="subform" data-form="addSub" data-scope="disc" data-list="goals"><input name="t" placeholder="Ajouter…" autocomplete="off"><input name="d" type="date" title="Échéance (facultatif)"><button class="btn" aria-label="Ajouter">${ico("plus")}</button></form>
+  </div>
+
+  <div class="card"><div class="sec-h"><h2>${ico(c.id === "mecatro" ? "cpu" : "pack")} ${L.gear}</h2><span class="badge">${it.gear.filter(g => g.owned).length}/${it.gear.length} ${c.id === "mecatro" ? "en stock" : "possédé"}</span></div>
+    ${it.gear.length ? subLines("disc", "gear", it.gear, { own: true }) : `<div class="empty">${L.gearEmpty}</div>`}
+    <form class="subform" data-form="addSub" data-scope="disc" data-list="gear"><input name="t" placeholder="${L.gearPh}" autocomplete="off"><input name="n" placeholder="${c.id === "mecatro" ? "Quantité, référence, prix…" : "Détail (poids, marque…)"}" autocomplete="off"><button class="btn" aria-label="Ajouter">${ico("plus")}</button></form>
+  </div>
+
+  <div class="card"><div class="sec-h"><h2>${ico("bolt")} ${L.log}</h2><button class="btn sm hl" data-act="newSeance">${ico("plus")} ${L.one}</button></div>
+    ${next.length ? `<div class="faint" style="margin:4px 0 6px">À venir : ${next.map(e => `${fmtShort(e.date)}${e.time ? " " + e.time : ""}`).join(", ")}</div>` : ""}
+    ${done.length ? done.map(e => `<div class="item" data-act="editSeance" data-id="${e.id}">
+      ${traceSvg(e.track) || `<div class="ibox">${ico(c.icon)}</div>`}
+      <div class="grow"><div style="font-weight:600;text-transform:capitalize">${fmtLong(e.date)}</div>${e.goalId ? `<div style="color:var(--hl);font-size:13px;font-weight:600">${ico("target")} ${esc((it.goals.find(g => g.id === e.goalId) || {}).title || "Objectif réalisé")}</div>` : ""}
+        <div class="stat-row">${seanceStats(e) || "—"}</div>
+        ${e.note ? `<div class="faint" style="margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.note)}</div>` : ""}</div>
+      ${e.mood ? `<span style="width:22px;color:var(--muted)">${face(e.mood - 1)}</span>` : ""}
+      ${(e.photos || []).length ? `<span class="badge">${(e.photos || []).length} ph.</span>` : ""}</div>`).join("") : `<div class="empty">Rien pour l'instant. Ajoute une ${L.one.toLowerCase()}, ou coche l'activité dans ton agenda une fois faite.</div>`}
+  </div>
+
+  <div class="card"><div class="sec-h"><h2>${ico("camera")} Galerie</h2>
+      <div class="seg"><button class="${V.galSort === "desc" ? "on" : ""}" data-act="galSort" data-k="desc">Récentes</button><button class="${V.galSort === "asc" ? "on" : ""}" data-act="galSort" data-k="asc">Anciennes</button></div></div>
+    ${years.length > 1 ? `<div class="row wrap" style="gap:6px;margin:6px 0 12px"><span class="chip ${V.galYear === "all" ? "on" : ""}" data-act="galYear" data-k="all">Toutes</span>${years.map(y => `<span class="chip ${V.galYear === y ? "on" : ""}" data-act="galYear" data-k="${y}">${y}</span>`).join("")}</div>` : ""}
+    ${gal.length ? `<div class="gal">${gal.map(p => `<div class="ph" data-act="viewPhoto" data-id="${p.e ? p.e.id : ""}" data-i="${p.i}"><img src="${p.src}" alt="" loading="lazy"><div class="cap">${p.e ? `<b>${fmtShort(p.e.date)} ${p.e.date.slice(0, 4)}</b>${p.e.place ? esc(p.e.place) : ""}` : `<b>${c.id === "mecatro" ? "Projet" : "Inspiration"}</b>`}</div></div>`).join("")}</div>`
+      : `<div class="empty">Les photos de tes ${L.one.toLowerCase()}s apparaîtront ici, avec leur date et leur lieu.</div>`}
+  </div>`;
+}
+let draftSeance = null;
+function seanceForm(e) {
+  const c = CAT[e.cat] || CAT.sport, it = findItem(e.libId)[1], fl = discFields(it), L = LABELS[c.id] || LABELS.sport;
+  const goal = e.goalId || draftSeance.goalId ? (it?.goals || []).find(g => g.id === (e.goalId || draftSeance.goalId)) : null;
+  const field = k => { const F = FIELDS[k], v = e[k] ?? "";
+    if (F.type === "textarea") return `<div style="grid-column:1/-1"><label>${F.l}</label><textarea name="${k}" style="min-height:70px">${esc(v)}</textarea></div>`;
+    return `<div><label>${F.l}</label><input name="${k}" type="${F.type}" ${F.type === "number" ? `min="0" inputmode="decimal" ${F.step ? `step="${F.step}"` : ""}` : ""} value="${esc(v)}"></div>`; };
+  return `<form data-form="saveSeance">
+    <div class="row between"><h2 style="margin:0">${e.id ? L.one : "Nouvelle " + L.one.toLowerCase()} · ${esc(it?.title || e.title)}</h2><button type="button" class="x" data-act="closeSheet">×</button></div>
+    ${discGpx(it) ? `<div class="row wrap" style="margin-top:10px"><label class="btn ghost sm filebtn">${ico("up")} Importer un fichier GPX<input type="file" accept=".gpx,application/gpx+xml,application/xml,text/xml" data-ch="gpx" hidden></label><span class="faint">Distance, durée, date et tracé remplis automatiquement.</span></div>` : ""}
+    ${draftSeance.track ? `<div style="margin-top:12px;background:var(--card2);border-radius:14px">${traceSvg(draftSeance.track, 320, 200, "bigtrace")}</div><div class="faint" style="margin-top:4px">Tracé de l'itinéraire · départ en vert, arrivée en orange</div>` : ""}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 10px">
+      <div><label>Date</label><input name="date" type="date" required value="${e.date || today()}"></div>
+      <div><label>Heure</label><input name="time" type="time" value="${e.time || ""}"></div>
+      <div><label>Durée (min)</label><input name="duration" type="number" min="0" inputmode="numeric" value="${e.duration || ""}"></div>
+      ${fl.map(field).join("")}
+      <div><label>Lieu</label><input name="place" value="${esc(e.place || "")}" placeholder="${c.id === "sport" ? "Massif, station, spot…" : "Atelier, maison…"}"></div>
+    </div>
+    <label>Ressenti</label>
+    <div class="moods">${MOODS.map(i => `<label><input type="radio" name="mood" value="${i + 1}" ${e.mood === i + 1 ? "checked" : ""}>${face(i)}</label>`).join("")}</div>
+    ${goal ? `<div class="card" style="margin:12px 0 0;background:var(--card2);padding:12px"><div class="row" style="gap:8px"><span style="color:var(--hl)">${ico("target")}</span><b>Objectif réalisé : ${esc(goal.title)}</b></div>
+      ${(goal.photos || []).length ? `<div class="faint" style="margin-top:6px">Tes inspirations :</div><div class="thumbs">${goal.photos.map(src => `<img src="${src}" alt="">`).join("")}</div>` : ""}</div>` : ""}
+    <label>Notes</label><textarea name="note" placeholder="Conditions, sensations, ce que j'ai appris…">${esc(e.note || "")}</textarea>
+    <label>Photos</label>
+    <label class="btn ghost sm filebtn">${ico("camera")} Ajouter des photos<input type="file" accept="image/*" multiple data-ch="seancePhotos" hidden></label>
+    <div class="thumbs" id="sphotos">${thumbsHtml()}</div>
+    <div class="row" style="margin-top:16px">${e.id ? `<button type="button" class="btn danger" data-act="delSeance" data-id="${e.id}">Supprimer</button>` : ""}<span class="grow"></span><button class="btn">Enregistrer</button></div>
+  </form>`;
+}
+const thumbsHtml = () => (draftSeance.photos || []).map((src, i) => `<div class="th"><img src="${src}" alt=""><button type="button" class="rm" data-act="rmSPhoto" data-i="${i}" aria-label="Retirer">×</button></div>`).join("");
+function openSeance(e) { draftSeance = { photos: [...(e.photos || [])], track: e.track || null, base: e }; openSheet(seanceForm(e)); }
+function hav(a, b) { const R = 6371, r = Math.PI / 180, dLa = (b[0] - a[0]) * r, dLo = (b[1] - a[1]) * r; const h = Math.sin(dLa / 2) ** 2 + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dLo / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)); }
+function parseGPX(txt) {
+  const doc = new DOMParser().parseFromString(txt, "application/xml");
+  let pts = [...doc.getElementsByTagName("trkpt")]; if (!pts.length) pts = [...doc.getElementsByTagName("rtept")];
+  if (!pts.length) throw new Error("vide");
+  let dist = 0, gain = 0, prev = null, ref = null; const times = [], track = [];
+  for (const p of pts) {
+    const ll = [Number(p.getAttribute("lat")), Number(p.getAttribute("lon"))];
+    const eEl = p.getElementsByTagName("ele")[0], ele = eEl ? Number(eEl.textContent) : null;
+    const tEl = p.getElementsByTagName("time")[0]; if (tEl) times.push(new Date(tEl.textContent));
+    if (prev) dist += hav(prev, ll);
+    if (ele !== null && !isNaN(ele)) { if (ref === null) ref = ele; else if (ele - ref >= 3) { gain += ele - ref; ref = ele; } else if (ref - ele >= 3) ref = ele; }
+    prev = ll; track.push(ll);
+  }
+  const step = Math.max(1, Math.ceil(track.length / 250));
+  const slim = track.filter((_, i) => i % step === 0 || i === track.length - 1).map(([a, b]) => [Math.round(a * 1e5) / 1e5, Math.round(b * 1e5) / 1e5]);
+  const t0 = times[0], t1 = times[times.length - 1];
+  return { distance: Math.round(dist * 100) / 100, elevation: Math.round(gain), duration: t0 && t1 ? Math.round((t1 - t0) / 60000) : null,
+    date: t0 && !isNaN(t0) ? iso(t0) : null, time: t0 && !isNaN(t0) ? `${pad(t0.getHours())}:${pad(t0.getMinutes())}` : null,
+    name: doc.getElementsByTagName("name")[0]?.textContent || "", track: slim };
+}
+
+/* =========================================================
+   9c. GOALS · SANTÉ · DÉVELOPPEMENT PERSO
+   ========================================================= */
+const f1 = v => (Math.round((v || 0) * 10) / 10).toString().replace(".", ",");
+const photoTile = (src, title, sub, act, id, prog) => `<div class="ph" data-act="${act}" data-id="${id}">${src ? `<img src="${src}" alt="" loading="lazy">` : `<div class="noimg">${ico("camera", "i big")}</div>`}
+  <div class="cap"><b>${esc(title)}</b>${sub || ""}${prog !== undefined ? `<div class="prog" style="background:rgba(255,255,255,.25)"><i style="width:${prog}%"></i></div>` : ""}</div></div>`;
+
+function viewLife() {
+  const L = S.life;
+  const evo = L.evolutions.slice().sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  return `${catHeader(CAT.goals)}
+  <p class="sub" style="margin:8px 0 0">Tes grands projets, ce qui te fait envie, ce que tu es et comment tu évolues.</p>
+  <div class="card"><div class="sec-h"><h2>${ico("target")} Projets de vie</h2><button class="btn sm hl" data-act="newLife">${ico("plus")} Projet</button></div>
+    ${L.projects.length ? `<div class="gal">${L.projects.map(p => photoTile(p.photos?.[0], p.title, p.horizon ? "Horizon " + esc(p.horizon) : "", "openLife", p.id, Number(p.progress) || 0)).join("")}</div>`
+      : `<div class="empty">Une maison, un tour du monde, une reconversion… Ajoute tes grands projets avec leurs photos d'inspiration.</div>`}
+  </div>
+  ${subCard("life", "wishes", L.wishes, "Mes envies", "spark", "Une envie…", "Ce qui te fait rêver, en grand ou en petit.", { check: true })}
+  ${subCard("life", "strengths", L.strengths, "Mes forces", "bolt", "Une force…", "Ce sur quoi tu peux t'appuyer.")}
+  ${subCard("life", "weaknesses", L.weaknesses, "Mes axes de progrès", "leaf", "Un point à travailler…", "Ce que tu aimerais faire évoluer, sans te juger.")}
+  <div class="card"><div class="sec-h"><h2>${ico("up")} Mes évolutions</h2></div>
+    ${evo.length ? subLines("life", "evolutions", evo, { dateFirst: true }) : `<div class="empty">Note ce qui change en toi : une peur dépassée, une nouvelle habitude, une fierté.</div>`}
+    <form class="subform" data-form="addSub" data-scope="life" data-list="evolutions"><input name="t" placeholder="Ce qui a changé…" autocomplete="off"><input name="d" type="date" value="${today()}"><button class="btn" aria-label="Ajouter">${ico("plus")}</button></form>
+  </div>`;
+}
+function lifeForm(p) {
+  return `<form data-form="saveLife">
+    <div class="row between"><h2 style="margin:0">${p.id ? "Modifier le projet" : "Nouveau projet de vie"}</h2><button type="button" class="x" data-act="closeSheet">×</button></div>
+    <label>Projet</label><input name="title" required value="${esc(p.title || "")}" placeholder="Ex. Ma maison en bois">
+    <label>Horizon</label><input name="horizon" value="${esc(p.horizon || "")}" placeholder="Ex. 2030, dans 5 ans…">
+    <label>Pourquoi ce projet, à quoi il ressemble</label><textarea name="desc">${esc(p.desc || "")}</textarea>
+    <label>Avancement : <b id="pv">${Number(p.progress) || 0}%</b></label><input name="progress" type="range" min="0" max="100" step="5" value="${Number(p.progress) || 0}" oninput="pv.textContent=this.value+'%'">
+    <label>Photos d'inspiration</label>
+    <label class="btn ghost sm filebtn">${ico("camera")} Ajouter des photos<input type="file" accept="image/*" multiple data-ch="seancePhotos" hidden></label>
+    <div class="thumbs" id="sphotos">${thumbsHtml()}</div>
+    <div class="row" style="margin-top:16px">${p.id ? `<button type="button" class="btn danger" data-act="delLife" data-id="${p.id}">Supprimer</button>` : ""}<span class="grow"></span><button class="btn">Enregistrer</button></div></form>`;
+}
+function lifeDetail(p) {
+  return `<div class="row between"><h2 style="margin:0">${esc(p.title)}</h2><button class="x" data-act="closeSheet">×</button></div>
+    ${p.horizon ? `<div class="faint">Horizon ${esc(p.horizon)}</div>` : ""}
+    <div class="prog" style="margin-top:10px"><i style="width:${Number(p.progress) || 0}%"></i></div><div class="faint" style="margin-top:4px">${Number(p.progress) || 0}% accompli</div>
+    ${p.desc ? `<p style="white-space:pre-line">${esc(p.desc)}</p>` : ""}
+    ${(p.photos || []).length ? `<div class="gal" style="margin-top:12px">${p.photos.map(src => `<div class="ph"><img src="${src}" alt=""></div>`).join("")}</div>` : ""}
+    <div class="row" style="margin-top:14px"><span class="grow"></span><button class="btn ghost" data-act="editLife" data-id="${p.id}">${ico("pen")} Modifier</button></div>`;
+}
+
+const MEALS = ["Petit-déjeuner", "Déjeuner", "Goûter / collation", "Dîner"];
+function viewHealth() {
+  const t = today(), dates = [...Array(14)].map((_, i) => addDays(t, i - 13));
+  const sl = dates.map(d => Number(getDay(d).sleep) || 0), last7 = sl.slice(-7).filter(v => v > 0);
+  const nights = dates.slice().reverse().filter(d => getDay(d).sleep).slice(0, 7);
+  const days = [...Array(7)].map((_, i) => addDays(t, -i));
+  const meals = d => S.health.meals.filter(m => m.date === d).sort((a, b) => MEALS.indexOf(a.type) - MEALS.indexOf(b.type));
+  return `${catHeader(CAT.sante)}
+  <div class="card"><div class="sec-h"><h2>${ico("moon")} Sommeil</h2><button class="btn sm hl" data-act="newSleep">${ico("plus")} Nuit</button></div>
+    <div class="tiles"><div class="tile"><div class="k">Moyenne sur 7 nuits</div><div class="val">${last7.length ? f1(avg(last7)) : "—"} <small>h</small></div></div><div class="tile"><div class="k">Mon objectif</div><div class="val">${f1(S.profile.goalSleep)} <small>h</small></div></div></div>
+    <div style="margin-top:12px">${barChart(dates, sl, S.profile.goalSleep, "var(--blue2)", "h", f1)}</div>
+    ${nights.map(d => { const x = getDay(d); return `<div class="line" data-act="newSleep" data-d="${d}" style="cursor:pointer"><div class="grow"><div style="font-weight:500;text-transform:capitalize">${fmtLong(d)}</div><div class="faint">${x.bed && x.wake ? `${x.bed} → ${x.wake}` : "Durée notée"}</div></div><b>${f1(x.sleep)} h</b>${x.sleepQ ? `<span style="width:22px;color:var(--muted)">${face(x.sleepQ - 1)}</span>` : ""}</div>`; }).join("")}
+  </div>
+  <div class="card"><div class="sec-h"><h2>${ico("leaf")} Alimentation</h2><button class="btn sm hl" data-act="newMeal">${ico("plus")} Repas</button></div>
+    ${days.some(d => meals(d).length) ? days.filter(d => meals(d).length).map(d => `<div class="eyebrow" style="margin:14px 0 4px;text-transform:none;letter-spacing:0;font-size:13px">${d === t ? "Aujourd'hui" : fmtLong(d)}</div>
+      ${meals(d).map(m => `<div class="item" data-act="editMeal" data-id="${m.id}">${m.photos?.[0] ? `<img src="${m.photos[0]}" alt="" style="width:46px;height:46px;border-radius:12px;object-fit:cover">` : `<div class="ibox">${ico("leaf")}</div>`}
+        <div class="grow"><div style="font-weight:600">${esc(m.type)}</div><div class="faint">${esc(m.desc || "")}</div></div>${m.mood ? `<span style="width:22px;color:var(--muted)">${face(m.mood - 1)}</span>` : ""}</div>`).join("")}`).join("")
+      : `<div class="empty">Note tes repas et comment tu te sens après : utile pour repérer ce qui te donne de l'énergie.</div>`}
+  </div>
+  ${subCard("health", "goals", S.health.goals, "Objectifs & routines santé", "heart", "Ex. Me coucher avant 23 h en semaine", "Tes objectifs physiques et tes routines bien-être.", { check: true })}`;
+}
+function sleepForm(d) {
+  const x = getDay(d);
+  return `<form data-form="saveSleep">
+    <div class="row between"><h2 style="margin:0">Ma nuit</h2><button type="button" class="x" data-act="closeSheet">×</button></div>
+    <label>Nuit se terminant le</label><input name="date" type="date" required value="${d}">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 10px"><div><label>Coucher</label><input name="bed" type="time" value="${x.bed || ""}"></div><div><label>Réveil</label><input name="wake" type="time" value="${x.wake || ""}"></div></div>
+    <label>ou durée directe (h)</label><input name="hours" type="number" step="0.25" min="0" max="24" inputmode="decimal" value="${x.bed ? "" : (x.sleep ?? "")}">
+    <label>Qualité du sommeil</label>
+    <div class="moods">${MOODS.map(i => `<label><input type="radio" name="q" value="${i + 1}" ${x.sleepQ === i + 1 ? "checked" : ""}>${face(i)}</label>`).join("")}</div>
+    <div class="row" style="margin-top:16px"><span class="grow"></span><button class="btn">Enregistrer</button></div></form>`;
+}
+function mealForm(m) {
+  return `<form data-form="saveMeal">
+    <div class="row between"><h2 style="margin:0">${m.id ? "Repas" : "Nouveau repas"}</h2><button type="button" class="x" data-act="closeSheet">×</button></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 10px"><div><label>Date</label><input name="date" type="date" required value="${m.date || today()}"></div>
+    <div><label>Repas</label><select name="type">${MEALS.map(x => `<option ${m.type === x ? "selected" : ""}>${x}</option>`).join("")}</select></div></div>
+    <label>Ce que j'ai mangé</label><textarea name="desc" placeholder="Ex. salade de lentilles, pain complet, une pomme">${esc(m.desc || "")}</textarea>
+    <label>Comment je me sens après</label>
+    <div class="moods">${MOODS.map(i => `<label><input type="radio" name="mood" value="${i + 1}" ${m.mood === i + 1 ? "checked" : ""}>${face(i)}</label>`).join("")}</div>
+    <label>Photo</label><label class="btn ghost sm filebtn">${ico("camera")} Ajouter une photo<input type="file" accept="image/*" multiple data-ch="seancePhotos" hidden></label>
+    <div class="thumbs" id="sphotos">${thumbsHtml()}</div>
+    <div class="row" style="margin-top:16px">${m.id ? `<button type="button" class="btn danger" data-act="delMeal" data-id="${m.id}">Supprimer</button>` : ""}<span class="grow"></span><button class="btn">Enregistrer</button></div></form>`;
+}
+
+const MTYPES = { livre: "Livre", film: "Film", serie: "Série" };
+const MSTATUS = { todo: "À découvrir", doing: "En cours", done: "Terminé" };
+const stars = n => n ? "★".repeat(n) + "☆".repeat(5 - n) : "";
+function viewMedia() {
+  let list = S.media.filter(m => (V.mType === "all" || m.type === V.mType) && (V.mStatus === "all" || m.status === V.mStatus));
+  list.sort((a, b) => (b.updated || "").localeCompare(a.updated || ""));
+  const quotes = S.media.flatMap(m => (m.quotes || []).map(q => ({ ...q, m })));
+  const qd = quotes.length ? quotes[Math.floor(Date.now() / 86400000) % quotes.length] : null;
+  const legacy = (S.library.devperso || []);
+  return `${catHeader(CAT.devperso, `<button class="btn sm hl" data-act="newMedia">${ico("plus")} Ajouter</button>`)}
+  ${qd ? `<div class="card"><div class="tag" style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--hl)">Citation du jour</div>
+    <p style="font-size:18px;line-height:1.45;margin:8px 0">« ${esc(qd.title)} »</p><div class="faint">${esc(qd.m.title)}${qd.m.author ? " · " + esc(qd.m.author) : ""}${qd.note ? " · " + esc(qd.note) : ""}</div>
+    <div class="faint" style="margin-top:6px">${quotes.length} citation${quotes.length > 1 ? "s" : ""} dans ta bibliothèque</div></div>` : ""}
+  <div class="row wrap" style="gap:6px;margin:14px 0 6px">
+    <span class="chip ${V.mType === "all" ? "on" : ""}" data-act="mType" data-k="all">Tout</span>
+    ${Object.entries(MTYPES).map(([k, n]) => `<span class="chip ${V.mType === k ? "on" : ""}" data-act="mType" data-k="${k}">${n}s</span>`).join("")}
+  </div>
+  <div class="seg" style="margin-bottom:6px"><button class="${V.mStatus === "all" ? "on" : ""}" data-act="mStatus" data-k="all">Tous</button>${Object.entries(MSTATUS).map(([k, n]) => `<button class="${V.mStatus === k ? "on" : ""}" data-act="mStatus" data-k="${k}">${n}</button>`).join("")}</div>
+  <div class="card">${list.length ? `<div class="gal">${list.map(m => photoTile(m.photos?.[0], m.title, `${MTYPES[m.type]}${m.author ? " · " + esc(m.author) : ""}${m.rating ? `<div>${stars(m.rating)}</div>` : ""}`, "openMedia", m.id)).join("")}</div>`
+    : `<div class="empty">Ajoute tes livres, films et séries : résumé, photos, et les citations que tu veux retenir.</div>`}</div>
+  ${legacy.length ? `<div class="eyebrow">Autres éléments</div><div class="card">${legacy.map(x => `<div class="item" data-act="editItem" data-id="${x.id}"><div class="ibox">${ico(KINDS[x.kind]?.i)}</div><div class="grow"><div style="font-weight:600">${esc(x.title)}</div><div class="faint">${KINDS[x.kind]?.n || ""}</div></div></div>`).join("")}</div>` : ""}`;
+}
+function mediaForm(m) {
+  return `<form data-form="saveMedia">
+    <div class="row between"><h2 style="margin:0">${m.id ? "Modifier" : "Ajouter"}</h2><button type="button" class="x" data-act="closeSheet">×</button></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 10px">
+      <div><label>Type</label><select name="type">${Object.entries(MTYPES).map(([k, n]) => `<option value="${k}" ${m.type === k ? "selected" : ""}>${n}</option>`).join("")}</select></div>
+      <div><label>Statut</label><select name="status">${Object.entries(MSTATUS).map(([k, n]) => `<option value="${k}" ${m.status === k ? "selected" : ""}>${n}</option>`).join("")}</select></div></div>
+    <label>Titre</label><input name="title" required value="${esc(m.title || "")}">
+    <label>Auteur·rice / réalisation</label><input name="author" value="${esc(m.author || "")}">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 10px">
+      <div><label>Ma note</label><select name="rating"><option value="">—</option>${[1, 2, 3, 4, 5].map(n => `<option value="${n}" ${m.rating == n ? "selected" : ""}>${stars(n)}</option>`).join("")}</select></div>
+      <div><label>Terminé le</label><input name="date" type="date" value="${m.date || ""}"></div></div>
+    <label>Résumé & ce que j'en retiens</label><textarea name="summary" style="min-height:120px">${esc(m.summary || "")}</textarea>
+    <label>Photos (couverture, passages…)</label><label class="btn ghost sm filebtn">${ico("camera")} Ajouter des photos<input type="file" accept="image/*" multiple data-ch="seancePhotos" hidden></label>
+    <div class="thumbs" id="sphotos">${thumbsHtml()}</div>
+    <div class="row" style="margin-top:16px">${m.id ? `<button type="button" class="btn danger" data-act="delMedia" data-id="${m.id}">Supprimer</button>` : ""}<span class="grow"></span><button class="btn">Enregistrer</button></div></form>`;
+}
+function mediaDetail(m) {
+  return `<div class="row between"><div><div class="faint">${MTYPES[m.type]} · ${MSTATUS[m.status]}${m.date ? " · " + fmtShort(m.date) + " " + m.date.slice(0, 4) : ""}</div><h2 style="margin:2px 0 0">${esc(m.title)}</h2></div><button class="x" data-act="closeSheet">×</button></div>
+    ${m.author ? `<div class="sub">${esc(m.author)}</div>` : ""}${m.rating ? `<div style="color:var(--hl);margin-top:4px">${stars(m.rating)}</div>` : ""}
+    ${(m.photos || []).length ? `<div class="thumbs" style="margin-top:12px">${m.photos.map(src => `<img src="${src}" alt="" style="width:96px;height:96px">`).join("")}</div>` : ""}
+    ${m.summary ? `<h3 style="margin-top:16px">Résumé</h3><p style="white-space:pre-line;margin-top:0">${esc(m.summary)}</p>` : ""}
+    <h3 style="margin-top:16px">Citations à retenir</h3>
+    ${(m.quotes || []).length ? m.quotes.map(q => `<div class="line"><div class="grow"><div style="font-style:italic">« ${esc(q.title)} »</div>${q.note ? `<div class="faint">${esc(q.note)}</div>` : ""}</div><button class="x" data-act="delSub" data-scope="media" data-list="quotes" data-id="${q.id}" aria-label="Supprimer">×</button></div>`).join("") : `<div class="empty">Aucune citation pour l'instant.</div>`}
+    <form class="subform" data-form="addSub" data-scope="media" data-list="quotes"><input name="t" placeholder="Une phrase à retenir…" autocomplete="off"><input name="n" placeholder="Page, épisode, personnage…" autocomplete="off"><button class="btn" aria-label="Ajouter">${ico("plus")}</button></form>
+    <div class="row" style="margin-top:16px"><span class="grow"></span><button class="btn ghost" data-act="editMedia" data-id="${m.id}">${ico("pen")} Modifier</button></div>`;
+}
+function getSub(scope, list) {
+  if (scope === "life") return [S.life, list];
+  if (scope === "health") return [S.health, list];
+  if (scope === "media") return [S.media.find(m => m.id === V.media), list];
+  return [findItem(V.disc)[1], list];
+}
+const afterSub = scope => { if (scope === "media") { save(false); const m = S.media.find(x => x.id === V.media); $("#sheet .sheet").innerHTML = mediaDetail(m); render(); } else save(); };
+
+/* =========================================================
+   9d. CULTURE GÉNÉRALE : matières, fiches, quiz
+   ========================================================= */
+const SUBJECTS = [
+  { id: "histoire",  n: "Histoire",    i: "hourglass" },
+  { id: "geo",       n: "Géographie",  i: "globe" },
+  { id: "philo",     n: "Philosophie", i: "bulb" },
+  { id: "politique", n: "Politique",   i: "columns" },
+  { id: "anglais",   n: "Anglais",     i: "chat" },
+  { id: "physique",  n: "Physique",    i: "atom" },
+];
+const SUBJ = Object.fromEntries(SUBJECTS.map(x => [x.id, x]));
+const STARTER = [
+  { subject: "histoire", title: "Les grandes périodes de l'Histoire", body: "Les historiens découpent le passé en grandes périodes, séparées par des événements repères. Ces dates sont des conventions : les changements ont été progressifs.\n\nLa Préhistoire couvre la très longue période avant l'écriture. L'Antiquité commence avec l'invention de l'écriture en Mésopotamie, vers 3300 av. J.-C. Le Moyen Âge débute en 476, avec la chute de l'Empire romain d'Occident. Les Temps modernes commencent en 1492, quand Christophe Colomb atteint l'Amérique. L'époque contemporaine s'ouvre avec la Révolution française, en 1789, et dure jusqu'à aujourd'hui.",
+    keys: ["Préhistoire → écriture (vers 3300 av. J.-C.)", "Antiquité → 476, chute de Rome", "Moyen Âge → 1492, Colomb en Amérique", "Temps modernes → 1789, Révolution française", "Époque contemporaine → aujourd'hui"],
+    quiz: [{ q: "Quel événement marque la fin de la Préhistoire ?", c: ["L'invention de l'écriture", "La découverte du feu", "L'invention de la roue"], a: 0 },
+           { q: "En quelle année commence le Moyen Âge ?", c: ["476", "1492", "800"], a: 0 },
+           { q: "Quel événement ouvre l'époque contemporaine ?", c: ["La Révolution française", "La Première Guerre mondiale", "La Renaissance"], a: 0 }] },
+  { subject: "geo", title: "Continents et océans", body: "La surface de la Terre est couverte à environ 71 % par les océans. On distingue cinq océans : le Pacifique, le plus grand (il couvre à lui seul près d'un tiers de la planète), l'Atlantique, l'Indien, l'Austral autour de l'Antarctique et l'Arctique, le plus petit.\n\nLe nombre de continents dépend des conventions. En France, on en compte souvent six : l'Europe, l'Asie, l'Afrique, l'Amérique, l'Océanie et l'Antarctique. Ailleurs, on sépare parfois l'Amérique du Nord et l'Amérique du Sud, ce qui fait sept. L'Asie est le plus grand continent et le plus peuplé.",
+    keys: ["Les océans couvrent environ 71 % de la Terre", "5 océans : Pacifique, Atlantique, Indien, Austral, Arctique", "Pacifique = le plus grand, Arctique = le plus petit", "Asie = plus grand et plus peuplé des continents"],
+    quiz: [{ q: "Quel est le plus grand océan ?", c: ["Pacifique", "Atlantique", "Indien"], a: 0 },
+           { q: "Quelle part de la Terre est couverte par les océans ?", c: ["Environ 71 %", "Environ 50 %", "Environ 90 %"], a: 0 },
+           { q: "Quel est le continent le plus peuplé ?", c: ["L'Asie", "L'Afrique", "L'Europe"], a: 0 }] },
+  { subject: "philo", title: "Socrate : « Connais-toi toi-même »", body: "Socrate est un philosophe athénien du Ve siècle av. J.-C. Il n'a rien écrit : on le connaît surtout grâce aux dialogues de son élève Platon.\n\nSa méthode consiste à interroger ses interlocuteurs jusqu'à leur faire découvrir qu'ils ne savent pas vraiment ce qu'ils croient savoir. Il la compare au métier de sa mère, sage-femme : il « fait accoucher les esprits », d'où le nom de maïeutique. La formule qu'on lui associe, « Je sais que je ne sais rien », résume cette idée : reconnaître son ignorance est le début de la sagesse. Il reprend aussi la devise inscrite au temple de Delphes, « Connais-toi toi-même ».\n\nAccusé de corrompre la jeunesse et de ne pas honorer les dieux de la cité, il est condamné à mort en 399 av. J.-C. et boit la ciguë.",
+    keys: ["Athènes, Ve siècle av. J.-C., n'a rien écrit", "Connu grâce à Platon", "Maïeutique : faire « accoucher » les esprits par des questions", "« Je sais que je ne sais rien »", "Condamné à mort en 399 av. J.-C."],
+    quiz: [{ q: "Comment s'appelle la méthode de questionnement de Socrate ?", c: ["La maïeutique", "La dialectique de Hegel", "Le doute méthodique"], a: 0 },
+           { q: "Grâce à qui connaît-on la pensée de Socrate ?", c: ["Platon, son élève", "Ses propres livres", "Aristote, son maître"], a: 0 },
+           { q: "Comment Socrate est-il mort ?", c: ["Condamné à boire la ciguë", "Au combat", "De vieillesse"], a: 0 }] },
+  { subject: "politique", title: "La séparation des pouvoirs", body: "Pour éviter qu'une seule personne ait tous les pouvoirs et en abuse, Montesquieu propose en 1748, dans De l'esprit des lois, de les répartir entre trois organes indépendants. L'idée : « le pouvoir arrête le pouvoir ».\n\nLe pouvoir législatif vote les lois. En France, c'est le Parlement, composé de l'Assemblée nationale et du Sénat. Le pouvoir exécutif applique les lois et conduit la politique du pays : le président de la République et le Gouvernement, dirigé par le Premier ministre. Le pouvoir judiciaire, enfin, juge les litiges et sanctionne les infractions : ce sont les tribunaux et les juges.\n\nCe principe est au cœur des démocraties modernes.",
+    keys: ["Montesquieu, De l'esprit des lois, 1748", "Législatif : voter les lois (Assemblée nationale + Sénat)", "Exécutif : appliquer les lois (Président + Gouvernement)", "Judiciaire : juger (tribunaux)"],
+    quiz: [{ q: "Qui a théorisé la séparation des pouvoirs ?", c: ["Montesquieu", "Voltaire", "Rousseau"], a: 0 },
+           { q: "En France, qui exerce le pouvoir législatif ?", c: ["Le Parlement (Assemblée nationale et Sénat)", "Le Gouvernement", "Le Conseil constitutionnel"], a: 0 },
+           { q: "Quel est le rôle du pouvoir exécutif ?", c: ["Appliquer les lois", "Voter les lois", "Juger les litiges"], a: 0 }] },
+  { subject: "anglais", title: "Present simple ou present continuous ?", body: "En anglais, il existe deux présents.\n\nLe present simple sert pour les habitudes, les vérités générales et ce qui est permanent : « I go hiking every weekend » (je fais de la rando tous les week-ends), « Water boils at 100 °C ». À la 3e personne du singulier, on ajoute un -s : « She works ». Pour la négation et la question, on utilise do/does : « Do you ski? », « He doesn't smoke ».\n\nLe present continuous (be + verbe en -ing) sert pour ce qui se passe en ce moment ou une situation temporaire : « I am reading a book right now », « She is living in Lyon this year ».\n\nAstuce : les mots « usually, often, every day » appellent souvent le present simple ; « now, right now, at the moment » appellent le present continuous.",
+    keys: ["Present simple : habitudes, vérités générales", "3e personne : -s (she works)", "Present continuous : be + -ing, en ce moment", "every day / usually → simple ; now / at the moment → continuous"],
+    quiz: [{ q: "« Right now, I ___ a cup of tea. »", c: ["am drinking", "drink", "drinks"], a: 0 },
+           { q: "« She ___ yoga every Monday. »", c: ["does", "is doing", "do"], a: 0 },
+           { q: "Quelle est la forme négative correcte ?", c: ["He doesn't like snow.", "He don't like snow.", "He not likes snow."], a: 0 }] },
+  { subject: "physique", title: "Les états de la matière", body: "La matière se présente principalement sous trois états. À l'état solide, les particules sont serrées et ordonnées : l'objet garde sa forme. À l'état liquide, elles sont proches mais désordonnées : le liquide prend la forme de son récipient. À l'état gazeux, elles sont éloignées et très agitées : le gaz occupe tout l'espace disponible.\n\nChaque passage a un nom. Fusion : solide → liquide. Solidification : liquide → solide. Vaporisation : liquide → gaz. Liquéfaction : gaz → liquide (la buée sur une vitre froide). Sublimation : solide → gaz directement (la neige carbonique). Condensation : gaz → solide directement (le givre).\n\nPour l'eau pure, à la pression du niveau de la mer, la fusion a lieu à 0 °C et l'ébullition à 100 °C. En altitude, la pression est plus faible et l'eau bout à une température plus basse : environ 90 °C au sommet du Mont-Blanc.",
+    keys: ["3 états : solide, liquide, gaz", "Fusion S→L, solidification L→S", "Vaporisation L→G, liquéfaction G→L", "Sublimation S→G, condensation G→S", "Eau : 0 °C et 100 °C au niveau de la mer, moins en altitude"],
+    quiz: [{ q: "Comment s'appelle le passage de l'état liquide à l'état gazeux ?", c: ["Vaporisation", "Liquéfaction", "Fusion"], a: 0 },
+           { q: "La buée sur une vitre froide est un exemple de…", c: ["Liquéfaction", "Sublimation", "Solidification"], a: 0 },
+           { q: "En montagne, l'eau bout…", c: ["À une température plus basse qu'au niveau de la mer", "À une température plus haute", "Toujours à 100 °C"], a: 0 }] },
+];
+const mkFiche = x => ({ id: uid(), subject: x.subject, title: x.title, body: x.body || "", keys: x.keys || [], quiz: (x.quiz || []).map(q => ({ q: q.q, c: q.c, a: q.a ?? 0 })), status: "new", streak: 0, ok: 0, ko: 0, added: today() });
+const addFichesTo = (st, l) => { for (const x of l) st.learn.fiches.push(mkFiche(x)); };
+const fichesOf = sid => S.learn.fiches.filter(f => f.subject === sid);
+const FSTAT = { new: "Nouvelle", read: "À revoir", known: "Maîtrisée" };
+
+function viewLearn() {
+  const sav = (S.library.culture || []).filter(x => x.kind === "savoir").sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  const others = (S.library.culture || []).filter(x => x.kind !== "savoir");
+  const all = S.learn.fiches, known = all.filter(f => f.status === "known").length;
+  return `${catHeader(CAT.culture, `<button class="btn sm ghost" data-act="importFiches">${ico("down")} Importer des fiches</button>`)}
+  <p class="sub" style="margin:8px 0 0">Revoir les bases matière par matière : une fiche à lire, les points clés, puis un quiz pour vérifier.</p>
+  <div class="card"><div class="row between"><div><div class="k faint">Fiches maîtrisées</div><div style="font-size:24px;font-weight:700">${known} <small class="faint">/ ${all.length}</small></div></div>
+    <button class="btn hl" data-act="quiz" data-k="all" ${all.some(f => f.quiz.length) ? "" : "disabled"}>${ico("bolt")} Quiz mélangé</button></div>
+    <div class="prog" style="margin-top:10px"><i style="width:${all.length ? known / all.length * 100 : 0}%"></i></div></div>
+  <div class="dgrid" data-sortbox="subj">${ordered(SUBJECTS, S.settings.subjOrder).map(sj => { const l = fichesOf(sj.id), k = l.filter(f => f.status === "known").length;
+    return `<button class="dcard" data-act="openSubject" data-k="${sj.id}" data-sort="${sj.id}"><div class="ibox">${ico(sj.i)}</div><div class="t">${sj.n}</div>
+      <div class="faint">${l.length} fiche${l.length > 1 ? "s" : ""} · ${k} maîtrisée${k > 1 ? "s" : ""}</div>
+      <div class="prog"><i style="width:${l.length ? k / l.length * 100 : 0}%"></i></div></button>`; }).join("")}</div>
+  <div class="card"><div class="sec-h"><h2>${ico("bulb")} Savoirs du jour</h2><span class="badge">${sav.length}</span></div>
+    ${sav.length ? sav.slice(0, V.savAll ? 999 : 5).map(x => `<div class="item" data-act="editItem" data-id="${x.id}"><div class="grow"><div style="font-weight:600">${esc(x.title)}</div><div class="faint">${x.date ? fmtShort(x.date) + " " + x.date.slice(0, 4) : ""}${x.done ? " · appris" : ""}</div></div></div>`).join("")
+      + (sav.length > 5 && !V.savAll ? `<button class="btn ghost sm" style="margin-top:8px" data-act="savAll">Tout voir</button>` : "") : `<div class="empty">Chaque savoir du jour est rangé ici automatiquement.</div>`}</div>
+  ${others.length ? `<div class="eyebrow">Autres éléments</div><div class="card">${others.map(x => `<div class="item" data-act="editItem" data-id="${x.id}"><div class="ibox">${ico(KINDS[x.kind]?.i)}</div><div class="grow"><div style="font-weight:600">${esc(x.title)}</div><div class="faint">${KINDS[x.kind]?.n || ""}</div></div></div>`).join("")}</div>` : ""}`;
+}
+function viewSubject() {
+  const sj = SUBJ[V.subject], l = fichesOf(sj.id), k = l.filter(f => f.status === "known").length;
+  const order = { read: 0, new: 1, known: 2 };
+  return `<div class="row between"><button class="btn icon" data-act="closeSubject">‹ Culture générale</button><button class="btn sm hl" data-act="newFiche">${ico("plus")} Fiche</button></div>
+  <div class="row" style="margin-top:14px"><div class="ibox">${ico(sj.i)}</div><h1>${sj.n}</h1></div>
+  <div class="card"><div class="row between"><div class="faint">${k} / ${l.length} fiche${l.length > 1 ? "s" : ""} maîtrisée${k > 1 ? "s" : ""}</div>
+    <button class="btn sm" data-act="quiz" data-k="${sj.id}" ${l.some(f => f.quiz.length) ? "" : "disabled"}>${ico("bolt")} Réviser</button></div>
+    <div class="prog" style="margin-top:10px"><i style="width:${l.length ? k / l.length * 100 : 0}%"></i></div></div>
+  <div class="card">${l.length ? l.slice().sort((a, b) => order[a.status] - order[b.status]).map(f => `<div class="item" data-act="openFiche" data-id="${f.id}">
+      <div class="grow"><div style="font-weight:600">${esc(f.title)}</div><div class="faint">${f.keys.length} point${f.keys.length > 1 ? "s" : ""} clé${f.keys.length > 1 ? "s" : ""} · ${f.quiz.length} question${f.quiz.length > 1 ? "s" : ""}</div></div>
+      <span class="badge ${f.status === "known" ? "" : f.status === "read" ? "warn" : ""}" style="${f.status === "known" ? "background:color-mix(in srgb,var(--teal) 20%,transparent);color:var(--teal)" : ""}">${FSTAT[f.status]}</span></div>`).join("")
+    : `<div class="empty">Pas encore de fiche. Demande-moi « une fiche sur … » dans la conversation, puis colle-la avec « Importer des fiches ».</div>`}</div>`;
+}
+function ficheSheet(f) {
+  return `<div class="row between"><div><div class="faint">${SUBJ[f.subject]?.n || ""}</div><h2 style="margin:2px 0 0">${esc(f.title)}</h2></div><button class="x" data-act="closeSheet">×</button></div>
+    <div style="margin-top:12px">${esc(f.body).split(/\n\n+/).map(p => `<p style="margin:0 0 10px;line-height:1.55">${p}</p>`).join("")}</div>
+    ${f.keys.length ? `<div class="card" style="margin:12px 0;background:var(--card2)"><h3 style="color:var(--hl)">À retenir</h3>${f.keys.map(k => `<div class="row" style="align-items:flex-start;gap:8px;margin:6px 0"><span style="color:var(--blue)">•</span><span>${esc(k)}</span></div>`).join("")}</div>` : ""}
+    <div class="row wrap" style="gap:8px;margin-top:12px">
+      ${f.quiz.length ? `<button class="btn hl" data-act="quiz" data-k="fiche:${f.id}">${ico("bolt")} Quiz (${f.quiz.length})</button>` : ""}
+      <button class="btn ${f.status === "known" ? "" : "ghost"}" data-act="ficheStatus" data-id="${f.id}" data-k="known">Je maîtrise</button>
+      <button class="btn ghost" data-act="ficheStatus" data-id="${f.id}" data-k="read">À revoir</button>
+      <span class="grow"></span><button class="btn ghost sm" data-act="editFiche" data-id="${f.id}">${ico("pen")}</button></div>`;
+}
+function ficheForm(f) {
+  const qtxt = (f.quiz || []).map(q => [q.q, q.c[q.a], ...q.c.filter((_, i) => i !== q.a)].join(" | ")).join("\n");
+  return `<form data-form="saveFiche" data-id="${f.id || ""}">
+    <div class="row between"><h2 style="margin:0">${f.id ? "Modifier la fiche" : "Nouvelle fiche"}</h2><button type="button" class="x" data-act="closeSheet">×</button></div>
+    <label>Matière</label><select name="subject">${SUBJECTS.map(x => `<option value="${x.id}" ${f.subject === x.id ? "selected" : ""}>${x.n}</option>`).join("")}</select>
+    <label>Titre</label><input name="title" required value="${esc(f.title || "")}">
+    <label>Contenu</label><textarea name="body" style="min-height:160px">${esc(f.body || "")}</textarea>
+    <label>Points clés (un par ligne)</label><textarea name="keys">${esc((f.keys || []).join("\n"))}</textarea>
+    <label>Questions de quiz (une par ligne)</label><textarea name="quiz" placeholder="Question | bonne réponse | mauvaise réponse | autre mauvaise réponse">${esc(qtxt)}</textarea>
+    <div class="faint" style="margin-top:4px">Format : Question | bonne réponse | mauvaise | mauvaise</div>
+    <div class="row" style="margin-top:16px">${f.id ? `<button type="button" class="btn danger" data-act="delFiche" data-id="${f.id}">Supprimer</button>` : ""}<span class="grow"></span><button class="btn">Enregistrer</button></div></form>`;
+}
+function importSheet() {
+  return `<form data-form="importFiches">
+    <div class="row between"><h2 style="margin:0">Importer des fiches</h2><button type="button" class="x" data-act="closeSheet">×</button></div>
+    <p class="sub">Demande-moi dans la conversation, par exemple : « Prépare 3 fiches d'histoire sur la Révolution française ». Je te donnerai un bloc de texte à copier, puis colle-le ici.</p>
+    <textarea name="data" style="min-height:200px;font-family:ui-monospace,monospace;font-size:13px" placeholder='[{"subject":"histoire","title":"…","body":"…","keys":["…"],"quiz":[{"q":"…","c":["bonne","mauvaise","mauvaise"],"a":0}]}]'></textarea>
+    <div class="row" style="margin-top:10px"><label class="btn ghost sm filebtn">${ico("up")} Ou choisir un fichier<input type="file" accept=".json,application/json,text/plain" data-ch="ficheFile" hidden></label><span class="grow"></span><button class="btn">Importer</button></div>
+    <div class="err" id="impErr"></div></form>`;
+}
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+let Q = null;
+function startQuiz(k) {
+  let fs = k === "all" ? S.learn.fiches : k.startsWith("fiche:") ? S.learn.fiches.filter(f => f.id === k.slice(6)) : fichesOf(k);
+  if (k === "all" || !k.startsWith("fiche:")) fs = fs.slice().sort((a, b) => ({ read: 0, new: 1, known: 2 })[a.status] - ({ read: 0, new: 1, known: 2 })[b.status]);
+  let items = fs.flatMap(f => f.quiz.map((q, qi) => ({ f, q, order: shuffle(q.c.map((_, i) => i)) })));
+  items = shuffle(items).slice(0, 10);
+  if (!items.length) return toast("Pas encore de questions ici");
+  Q = { items, i: 0, ok: 0, picked: null, res: {} };
+  openSheet(quizHtml());
+}
+function quizHtml() {
+  if (Q.i >= Q.items.length) {
+    const n = Q.items.length;
+    return `<div class="row between"><h2 style="margin:0">Résultat</h2><button class="x" data-act="closeSheet">×</button></div>
+      <div style="text-align:center;margin:20px 0"><div style="font-size:48px;font-weight:800;color:${Q.ok / n >= .7 ? "var(--teal)" : "var(--hl)"}">${Q.ok}/${n}</div>
+      <div class="sub">${Q.ok === n ? "Parfait, bravo !" : Q.ok / n >= .7 ? "Très bien, encore un petit effort." : "Les fiches concernées passent en « À revoir »."}</div></div>
+      <div class="row"><span class="grow"></span><button class="btn ghost" data-act="closeSheet">Fermer</button><button class="btn hl" data-act="quizAgain">Recommencer</button></div>`;
+  }
+  const it = Q.items[Q.i];
+  return `<div class="row between"><div class="faint">${SUBJ[it.f.subject]?.n} · question ${Q.i + 1}/${Q.items.length}</div><button class="x" data-act="closeSheet">×</button></div>
+    <div class="prog" style="margin-top:8px"><i style="width:${Q.i / Q.items.length * 100}%"></i></div>
+    <h2 style="margin:16px 0 14px;font-size:19px;line-height:1.35">${esc(it.q.q)}</h2>
+    <div style="display:flex;flex-direction:column;gap:8px">${it.order.map(ci => {
+      let st = ""; if (Q.picked !== null) { if (ci === it.q.a) st = "border-color:var(--teal);background:color-mix(in srgb,var(--teal) 18%,var(--card2))"; else if (ci === Q.picked) st = "border-color:var(--danger);background:color-mix(in srgb,var(--danger) 15%,var(--card2))"; }
+      return `<button class="btn ghost" style="justify-content:flex-start;text-align:left;white-space:normal;padding:13px 14px;border:2px solid transparent;${st}" data-act="quizAns" data-k="${ci}" ${Q.picked !== null ? "disabled" : ""}>${esc(it.q.c[ci])}</button>`; }).join("")}</div>
+    ${Q.picked !== null ? `<div class="row" style="margin-top:14px"><span style="font-weight:600;color:${Q.picked === it.q.a ? "var(--teal)" : "var(--danger)"}">${Q.picked === it.q.a ? "Bonne réponse !" : "Pas tout à fait."}</span><span class="grow"></span>
+      <button class="btn ghost sm" data-act="openFiche" data-id="${it.f.id}">Revoir la fiche</button><button class="btn" data-act="quizNext">${Q.i + 1 < Q.items.length ? "Suivante" : "Voir le résultat"}</button></div>` : ""}`;
+}
+function addFiches(list) {
+  let n = 0;
+  for (const x of list) { if (!x || !x.title || !SUBJ[x.subject]) continue; S.learn.fiches.push(mkFiche(x)); n++; }
+  return n;
+}
+
+/* =========================================================
+   9e. FICHES GÉNÉRIQUES (objectifs, voyages, envies, moments)
+   ========================================================= */
+const ENT = {
+  goal:   { name: "Objectif", list: () => findItem(V.disc)[1].goals, photos: "Inspirations, patrons, plans", links: true,
+            fields: [["title", "Objectif", "text", 1], ["date", "Échéance", "date"], ["note", "Notes, mesures, idées", "textarea"]] },
+  trip:   { name: "Voyage", list: () => S.travel.trips, photos: "Photos du voyage", links: true,
+            fields: [["title", "Destination / nom du voyage", "text", 1], ["place", "Pays, région", "text"], ["start", "Du", "date"], ["end", "Au", "date"], ["note", "Carnet de voyage", "textarea"]] },
+  wish:   { name: "Envie de voyage", list: () => S.travel.wishes, photos: "Photos d'inspiration", links: true,
+            fields: [["title", "Destination", "text", 1], ["place", "Pays, région", "text"], ["season", "Meilleure période", "text"], ["budget", "Budget estimé (€)", "number"], ["note", "Idées, itinéraire, envies sur place", "textarea"]] },
+  moment: { name: "Moment à vivre", list: () => S.travel.moments, photos: "Inspirations", links: true,
+            fields: [["title", "Le moment à vivre", "text", 1], ["note", "Où et quand le voir", "textarea"]] },
+};
+const linkList = l => (l || []).map(u => `<a class="chip" href="${esc(u)}" target="_blank" rel="noopener" style="max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ico("link")} ${esc(u.replace(/^https?:\/\/(www\.)?/, "").slice(0, 40))}</a>`).join("");
+function entForm(kind, o) {
+  const C = ENT[kind];
+  const fld = ([k, l, t, req]) => t === "textarea" ? `<label>${l}</label><textarea name="${k}">${esc(o[k] || "")}</textarea>`
+    : `<label>${l}</label><input name="${k}" type="${t}" ${req ? "required" : ""} ${t === "number" ? 'min="0" inputmode="decimal"' : ""} value="${esc(o[k] ?? "")}">`;
+  return `<form data-form="saveEnt" data-kind="${kind}" data-id="${o.id || ""}">
+    <div class="row between"><h2 style="margin:0">${o.id ? "Modifier" : "Nouveau"} · ${C.name.toLowerCase()}</h2><button type="button" class="x" data-act="closeSheet">×</button></div>
+    ${C.fields.map(fld).join("")}
+    ${kind === "moment" && o.done ? `<label>Vécu le</label><input name="doneDate" type="date" value="${o.doneDate || ""}"><label>Où</label><input name="donePlace" value="${esc(o.donePlace || "")}"><label>Mon récit</label><textarea name="story">${esc(o.story || "")}</textarea>` : ""}
+    ${C.links ? `<label>Liens (un par ligne)</label><textarea name="links" style="min-height:60px" placeholder="https://…">${esc((o.links || []).join("\n"))}</textarea>` : ""}
+    <label>${o.done && kind === "moment" ? "Photos" : C.photos}</label>
+    <label class="btn ghost sm filebtn">${ico("camera")} Ajouter des photos<input type="file" accept="image/*" multiple data-ch="seancePhotos" hidden></label>
+    <div class="thumbs" id="sphotos">${thumbsHtml()}</div>
+    <div class="row" style="margin-top:16px">${o.id ? `<button type="button" class="btn danger" data-act="delEnt" data-kind="${kind}" data-id="${o.id}">Supprimer</button>` : ""}<span class="grow"></span><button class="btn">Enregistrer</button></div></form>`;
+}
+function entDetail(kind, o) {
+  const C = ENT[kind], ev = o.seanceId ? S.events.find(e => e.id === o.seanceId) : null;
+  const sub = kind === "trip" ? [o.place, o.start ? `${fmtShort(o.start)} ${o.start.slice(0, 4)}${o.end && o.end !== o.start ? " → " + fmtShort(o.end) + " " + o.end.slice(0, 4) : ""}` : ""]
+    : kind === "wish" ? [o.place, o.season, o.budget ? `≈ ${nf(o.budget)} €` : ""] : kind === "goal" ? [o.date ? "Échéance " + fmtShort(o.date) + " " + o.date.slice(0, 4) : ""]
+    : [o.done ? `Vécu${o.doneDate ? " le " + fmtShort(o.doneDate) + " " + o.doneDate.slice(0, 4) : ""}${o.donePlace ? " · " + o.donePlace : ""}` : "À vivre"];
+  return `<div class="row between"><div><div class="faint">${C.name}${o.done ? (kind === "goal" ? " · réalisé" : kind === "wish" ? " · réalisé" : "") : ""}</div><h2 style="margin:2px 0 0">${esc(o.title)}</h2></div><button class="x" data-act="closeSheet">×</button></div>
+    ${sub.filter(Boolean).length ? `<div class="sub" style="margin-top:4px">${sub.filter(Boolean).map(esc).join(" · ")}</div>` : ""}
+    ${o.note ? `<p style="white-space:pre-line;line-height:1.5">${esc(o.note)}</p>` : ""}
+    ${o.story ? `<h3 style="margin-top:14px">Mon récit</h3><p style="white-space:pre-line;margin-top:0">${esc(o.story)}</p>` : ""}
+    ${(o.links || []).length ? `<div class="row wrap" style="gap:6px;margin-top:10px">${linkList(o.links)}</div>` : ""}
+    ${(o.photos || []).length ? `<div class="gal" style="margin-top:12px">${o.photos.map(src => `<div class="ph"><img src="${src}" alt=""></div>`).join("")}</div>` : ""}
+    ${ev && (ev.photos || []).length ? `<h3 style="margin-top:14px">Le résultat</h3><div class="gal">${ev.photos.map(src => `<div class="ph"><img src="${src}" alt=""></div>`).join("")}</div>` : ""}
+    <div class="row wrap" style="margin-top:16px;gap:8px">
+      ${kind === "goal" && !o.done ? `<button class="btn hl" data-act="goalDone" data-id="${o.id}">${ico("target")} C'est réalisé !</button>` : ""}
+      ${kind === "goal" && o.done && ev ? `<button class="btn ghost" data-act="editSeance" data-id="${ev.id}">Voir la ${LABELS[V.cat]?.one.toLowerCase() || "séance"}</button>` : ""}
+      ${kind === "wish" && !o.done ? `<button class="btn hl" data-act="wishDone" data-id="${o.id}">J'y suis allée !</button>` : ""}
+      ${kind === "moment" && !o.done ? `<button class="btn hl" data-act="momentDone" data-id="${o.id}">Je l'ai vécu !</button>` : ""}
+      <span class="grow"></span><button class="btn ghost" data-act="editEnt" data-kind="${kind}" data-id="${o.id}">${ico("pen")} Modifier</button></div>`;
+}
+const findEnt = (kind, id) => ENT[kind].list().find(x => x.id === id);
+
+function viewTravel() {
+  const T = S.travel, tab = V.tTab;
+  const trips = T.trips.slice().sort((a, b) => (b.start || "").localeCompare(a.start || ""));
+  const wishes = T.wishes.filter(w => !w.done), todo = T.moments.filter(m => !m.done), lived = T.moments.filter(m => m.done).sort((a, b) => (b.doneDate || "").localeCompare(a.doneDate || ""));
+  const legacy = S.library.voyage || [];
+  const tile = (o, kind, sub) => photoTile(o.photos?.[0], o.title, sub, "openEnt", o.id).replace('data-act="openEnt"', `data-act="openEnt" data-kind="${kind}"`);
+  const addKind = tab === "trips" ? "trip" : tab === "wishes" ? "wish" : "moment";
+  return `${catHeader(CAT.voyage, `<button class="btn sm hl" data-act="newEnt" data-kind="${addKind}">${ico("plus")} ${tab === "trips" ? "Voyage" : tab === "wishes" ? "Envie" : "Moment"}</button>`)}
+  <div class="seg" style="margin-top:14px"><button class="${tab === "trips" ? "on" : ""}" data-act="tTab" data-k="trips">Réalisés · ${trips.length}</button><button class="${tab === "wishes" ? "on" : ""}" data-act="tTab" data-k="wishes">Envies · ${wishes.length}</button><button class="${tab === "moments" ? "on" : ""}" data-act="tTab" data-k="moments">Moments · ${todo.length + lived.length}</button></div>
+  ${tab === "trips" ? `<div class="card">${trips.length ? `<div class="gal">${trips.map(o => tile(o, "trip", `${o.place ? esc(o.place) : ""}${o.start ? `${o.place ? " · " : ""}${fmtShort(o.start)} ${o.start.slice(0, 4)}` : ""}`)).join("")}</div>`
+      : `<div class="empty">Tes voyages réalisés, avec leurs dates, ton carnet et tes photos.</div>`}</div>` : ""}
+  ${tab === "wishes" ? `<div class="card">${wishes.length ? wishes.map(o => `<div class="item" data-act="openEnt" data-kind="wish" data-id="${o.id}">${o.photos?.[0] ? `<img src="${o.photos[0]}" alt="" style="width:52px;height:52px;border-radius:12px;object-fit:cover">` : `<div class="ibox">${ico("compass")}</div>`}
+      <div class="grow"><div style="font-weight:600">${esc(o.title)}</div><div class="faint">${[o.place, o.season, o.budget ? `≈ ${nf(o.budget)} €` : ""].filter(Boolean).map(esc).join(" · ")}</div></div></div>`).join("")
+      : `<div class="empty">Les destinations qui te font rêver. Quand tu y es allée, touche « J'y suis allée » : elle passe dans tes voyages réalisés.</div>`}</div>` : ""}
+  ${tab === "moments" ? `<p class="sub" style="margin:12px 2px 0">Des expériences à vivre, peu importe où : mer de nuages, aurores boréales, mer phosphorescente… Une fois vécues, elles gardent la date et le lieu.</p>
+    <div class="card"><div class="sec-h"><h2>${ico("spark")} À vivre</h2><span class="badge">${todo.length}</span></div>
+      ${todo.length ? todo.map(o => `<div class="item" data-act="openEnt" data-kind="moment" data-id="${o.id}">${o.photos?.[0] ? `<img src="${o.photos[0]}" alt="" style="width:46px;height:46px;border-radius:12px;object-fit:cover">` : `<div class="ibox">${ico("spark")}</div>`}<div class="grow"><div style="font-weight:600">${esc(o.title)}</div>${o.note ? `<div class="faint" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(o.note)}</div>` : ""}</div></div>`).join("") : `<div class="empty">Ajoute un moment avec le bouton en haut.</div>`}</div>
+    <div class="card"><div class="sec-h"><h2>${ico("camera")} Vécus</h2><span class="badge">${lived.length}</span></div>
+      ${lived.length ? `<div class="gal">${lived.map(o => tile(o, "moment", `${o.donePlace ? esc(o.donePlace) : ""}${o.doneDate ? `${o.donePlace ? " · " : ""}${fmtShort(o.doneDate)} ${o.doneDate.slice(0, 4)}` : ""}`)).join("")}</div>` : `<div class="empty">Tes moments vécus apparaîtront ici, avec où et quand.</div>`}</div>` : ""}
+  ${legacy.length ? `<div class="eyebrow">Autres éléments</div><div class="card">${legacy.map(x => `<div class="item" data-act="editItem" data-id="${x.id}"><div class="ibox">${ico(KINDS[x.kind]?.i)}</div><div class="grow"><div style="font-weight:600">${esc(x.title)}</div><div class="faint">${KINDS[x.kind]?.n || ""}</div></div></div>`).join("")}</div>` : ""}`;
+}
+
+/* =========================================================
+   10. VUE : PROFIL
+   ========================================================= */
+function viewProfil() {
+  const p = S.profile, f = (lab, k, type = "text", extra = "") => `<div><label>${lab}</label><input data-ch="profile" data-k="${k}" type="${type}" value="${esc(p[k] ?? "")}" ${extra}></div>`;
+  return `
+  <h1>Profil</h1>
+  <div class="card"><h2>Mes informations</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 10px">
+      ${f("Prénom", "name")}${f("Date de naissance", "birth", "date")}
+      ${f("Taille (cm)", "height", "number")}${f("Poids (kg)", "weight", "number", 'step="0.1"')}
+    </div></div>
+  <div class="card"><h2>Mes objectifs quotidiens</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 10px">
+      ${f("Pas", "goalSteps", "number")}${f("Sommeil (h)", "goalSleep", "number", 'step="0.5"')}
+      ${f("Entraînement (min)", "goalTraining", "number")}${f("Eau (ml)", "goalWater", "number", 'step="100"')}
+      ${f("Durée de cycle par défaut (j)", "cycleLen", "number", 'min="18" max="45"')}
+    </div><div class="faint" style="margin-top:8px">La durée du cycle est recalculée automatiquement dès que tu as noté au moins deux cycles.</div></div>
+  <div class="card"><h2>Apparence</h2>
+    <div class="seg"><button class="${S.settings.theme === "dark" ? "on" : ""}" data-act="theme" data-k="dark">${ico("moon")} Sombre</button><button class="${S.settings.theme === "light" ? "on" : ""}" data-act="theme" data-k="light">${ico("sun")} Clair</button></div></div>
+  <div class="card"><h2>Confidentialité</h2>
+    <p class="sub" style="margin-top:0">Tes données restent <b>uniquement sur cet appareil</b> : rien n'est envoyé sur un serveur. ${KEY ? "Elles sont <b>chiffrées (AES-256)</b> avec ton code." : "Ajoute un code pour les chiffrer : sans lui, personne ne peut les lire, même en accédant au navigateur."}</p>
+    ${!hasCrypto ? `<div class="empty">Le chiffrement n'est pas disponible dans ce navigateur.</div>` :
+      KEY ? `<div class="row wrap"><button class="btn ghost" data-act="setPin">Changer le code</button><button class="btn ghost" data-act="removePin">Retirer le code</button><button class="btn ghost" data-act="lockNow">${ico("lock")} Verrouiller</button></div>
+        <label>Verrouillage automatique après</label><select data-ch="autoLock">${[1, 5, 15, 60].map(m => `<option value="${m}" ${S.settings.autoLock == m ? "selected" : ""}>${m} min en arrière-plan</option>`).join("")}</select>`
+      : `<button class="btn" data-act="setPin">${ico("lock")} Créer un code</button>`}
+    <div class="faint" style="margin-top:10px">Si tu oublies ton code, les données chiffrées sont irrécupérables. Pense à faire des sauvegardes.</div></div>
+  <div class="card"><h2>Apple Santé & Suunto</h2>
+    <p class="sub" style="margin-top:0">Ton raccourci iPhone copie tes pas, ton sommeil et ton exercice du jour. Colle-les ici : les données restent sur ton appareil.</p>
+    <button class="btn ghost" data-act="healthImport">${ico("heart")} Importer depuis Apple Santé</button></div>
+  <div class="card"><h2>Sauvegarde</h2>
+    <p class="sub" style="margin-top:0">Exporte un fichier de sauvegarde pour ne rien perdre, ou pour transférer tes données entre ton iPhone et ton PC.</p>
+    <div class="row wrap"><button class="btn ghost" data-act="exportData">${ico("down")} Exporter</button>
+      <label class="btn ghost" style="margin:0;color:var(--text);font-size:15px">${ico("up")} Importer<input type="file" accept="application/json,.json" data-ch="importData" hidden></label></div>
+    <hr><button class="btn danger" data-act="wipe">Tout effacer</button></div>
+  <div class="faint" style="text-align:center;margin:20px 0">MarieMe · prototype v0.1</div>`;
+}
+
+/* =========================================================
+   11. FEUILLES, DIALOGUES, INFOBULLES
+   ========================================================= */
+function openSheet(html) {
+  closeSheet();
+  const bg = document.createElement("div"); bg.className = "sheet-bg"; bg.id = "sheet";
+  bg.innerHTML = `<div class="sheet">${html}</div>`;
+  bg.addEventListener("click", e => { if (e.target === bg) closeSheet(); });
+  document.body.appendChild(bg);
+  const inp = bg.querySelector("input:not([type=hidden]):not([type=file]):not([type=checkbox]):not([type=range])"); if (inp && window.innerWidth > 620) inp.focus();
+  return bg;
+}
+function closeSheet() { $("#sheet")?.remove(); }
+function ask(msg, okTxt = "Confirmer", danger = true) {
+  return new Promise(res => {
+    const bg = openSheet(`<h2>${msg}</h2><div class="row" style="margin-top:16px"><span class="grow"></span><button class="btn ghost" id="no">Annuler</button><button class="btn ${danger ? "danger" : ""}" id="yes">${okTxt}</button></div>`);
+    bg.querySelector("#yes").onclick = () => { closeSheet(); res(true); };
+    bg.querySelector("#no").onclick = () => { closeSheet(); res(false); };
+  });
+}
+function toast(msg) { const t = document.createElement("div"); t.className = "toast"; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
+const tip = $("#tip");
+function showTip(el, x, y) { tip.textContent = el.dataset.tip; tip.style.opacity = 1; const w = tip.offsetWidth; tip.style.left = Math.min(window.innerWidth - w - 8, Math.max(8, x - w / 2)) + "px"; tip.style.top = (y - 40) + "px"; }
+document.addEventListener("pointermove", e => { const el = e.target.closest?.("[data-tip]"); if (el) showTip(el, e.clientX, e.clientY); else tip.style.opacity = 0; });
+document.addEventListener("pointerdown", e => { const el = e.target.closest?.("[data-tip]"); if (el) showTip(el, e.clientX, e.clientY); });
+document.addEventListener("scroll", () => tip.style.opacity = 0, { passive: true });
+
+function statSheet(k) {
+  const t = today(), d = getDay(t);
+  const M = {
+    steps: ["Pas du jour", "number", d.steps, 'min="0" inputmode="numeric"'],
+    sleep: ["Sommeil de la nuit (heures)", "number", d.sleep, 'min="0" max="24" step="0.25" inputmode="decimal"'],
+    training: ["Entraînement hors agenda (minutes)", "number", d.training, 'min="0" inputmode="numeric"'],
+    water: ["Eau bue (ml)", "number", d.water, 'min="0" step="50" inputmode="numeric"'],
+  };
+  if (k === "tasks") { V.tab = "home"; $("[data-form=addTodo] input")?.focus(); return; }
+  const [lab, type, v, extra] = M[k];
+  openSheet(`<form data-form="saveStat" data-k="${k}"><h2>${lab}</h2><input name="v" type="${type}" value="${v ?? ""}" ${extra}>
+    ${k === "training" ? `<div class="faint" style="margin-top:6px">Les activités sportives cochées dans l'agenda s'ajoutent automatiquement.</div>` : ""}
+    <div class="faint" style="margin-top:6px">Plus tard, ces chiffres pourront venir automatiquement d'Apple Santé.</div>
+    <div class="row" style="margin-top:14px"><span class="grow"></span><button type="button" class="btn ghost" data-act="closeSheet">Annuler</button><button class="btn">Enregistrer</button></div></form>`);
+}
+const evActs = cid => (S.library[cid] || []).filter(x => x.kind === "discipline" || x.kind === "activite");
+function eventSheet(d, pre = {}) {
+  openSheet(`<form data-form="saveEvent">
+    <div class="row between"><h2 style="margin:0">Ajouter au programme</h2><button type="button" class="x" data-act="closeSheet">×</button></div>
+    <label>Catégorie</label>
+    <select name="cat" data-ch="evCat"><option value="rdv">Rendez-vous</option>${CATS.map(c => `<option value="${c.id}">${c.name}</option>`).join("")}<option value="autre">Autre</option></select>
+    <div id="evActRow"><label>Activité</label><select name="libId" data-ch="evAct"></select></div>
+    <div id="evTitleRow"><label id="evTitleLab">Nom</label><input name="title" value="${esc(pre.libId ? "" : pre.title || "")}" autocomplete="off"></div>
+    <label class="row" style="gap:8px;color:var(--text)" id="addLibRow"><input type="checkbox" name="addLib" style="width:auto" checked> L'ajouter à mes activités de cette catégorie</label>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 10px">
+      <div style="grid-column:1/-1"><label>Date</label><input name="date" type="date" required value="${d}"></div>
+      <div><label>Début</label><input name="time" type="time" value="${pre.time || ""}" data-ch="evTime"></div>
+      <div><label>Fin</label><input name="end" type="time" data-ch="evTime"></div>
+      <div><label>Durée (min)</label><input name="duration" type="number" min="0" value="${pre.duration || ""}"></div></div>
+    <div class="row" style="margin-top:16px"><span class="grow"></span><button class="btn">Ajouter</button></div></form>`);
+  const form = $("#sheet form");
+  form.cat.value = pre.kind === "rdv" ? "rdv" : (pre.cat && (CAT[pre.cat] || pre.cat === "autre") ? pre.cat : "sport");
+  fillActs(form, pre.libId);
+}
+function fillActs(form, libId) {
+  const c = form.cat.value, acts = CAT[c] ? evActs(c) : [], isDisc = CAT[c]?.kinds.includes("discipline");
+  $("#evActRow").hidden = !(acts.length || isDisc);
+  form.libId.innerHTML = acts.map(a => `<option value="${a.id}">${esc(a.title)}</option>`).join("") + (isDisc ? `<option value="__new">+ Nouvelle activité…</option>` : "");
+  if (libId && acts.some(a => a.id === libId)) form.libId.value = libId;
+  updateEv(form, true);
+}
+function updateEv(form, fillDur) {
+  const c = form.cat.value, hasSel = !$("#evActRow").hidden, v = hasSel ? form.libId.value : "";
+  const isNew = !hasSel || v === "__new";
+  $("#evTitleRow").hidden = !isNew; form.title.required = isNew;
+  $("#evTitleLab").textContent = c === "rdv" ? "Rendez-vous" : CAT[c]?.kinds.includes("discipline") ? "Nom de la nouvelle activité" : "Nom";
+  form.title.placeholder = c === "rdv" ? "Ex. dentiste, rendez-vous banque…" : c === "sport" ? "Ex. escalade" : "";
+  $("#addLibRow").hidden = !(v === "__new");
+  if (fillDur) { const it = isNew ? null : findItem(v)[1]; form.duration.value = it?.duration || ""; }
+}
+function pinSheet() {
+  openSheet(`<form data-form="savePin"><h2>${KEY ? "Nouveau code" : "Créer un code"}</h2>
+    <p class="sub">Au moins 4 chiffres. Il te sera demandé à chaque ouverture.</p>
+    <label>Code</label><input name="a" type="password" inputmode="numeric" autocomplete="new-password" minlength="4" required>
+    <label>Confirmer</label><input name="b" type="password" inputmode="numeric" autocomplete="new-password" minlength="4" required>
+    <div class="err" id="pinErr"></div>
+    <div class="row"><span class="grow"></span><button type="button" class="btn ghost" data-act="closeSheet">Annuler</button><button class="btn">Valider</button></div></form>`);
+}
+async function resizeImage(file, max = 1280) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+    const r = Math.min(1, max / Math.max(img.width, img.height));
+    const c = document.createElement("canvas"); c.width = Math.round(img.width * r); c.height = Math.round(img.height * r);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    return c.toDataURL("image/jpeg", .8);
+  } finally { URL.revokeObjectURL(url); }
+}
+
+/* =========================================================
+   12. ACTIONS (clics)
+   ========================================================= */
+let draftItem = null;
+const findItem = id => { for (const c of CATS) { const it = (S.library[c.id] || []).find(x => x.id === id); if (it) return [c.id, it]; } return [null, null]; };
+const ACT = {
+  tab: el => { V.tab = el.dataset.k; V.cat = null; render(); window.scrollTo(0, 0); },
+  editStat: el => statSheet(el.dataset.k),
+  addWater: el => { const t = today(); setDay(t, { water: (Number(getDay(t).water) || 0) + Number(el.dataset.v) }); save(); toast("Eau ajoutée"); },
+  toggleTodo: el => { const x = S.todos.find(x => x.id === el.dataset.id); x.done = !x.done; x.doneDate = x.done ? today() : null; if (!x.done && x.date < today()) x.date = today(); save(); },
+  delTodo: el => { S.todos = S.todos.filter(x => x.id !== el.dataset.id); save(); },
+  toggleRead: () => { V.readOpen = !V.readOpen; render(); },
+  markRead: () => { const t = today(), a = savoirOfDay(t); if (S.savoir[t]) delete S.savoir[t]; else { S.savoir[t] = a.t; toast("Un savoir de plus"); } const it = (S.library.culture || []).find(x => x.kind === "savoir" && x.date === t); if (it) it.done = !!S.savoir[t]; save(); },
+  openCat: el => { V.cat = el.dataset.k; V.kind = "all"; V.disc = null; V.subject = null; render(); window.scrollTo(0, 0); },
+  closeCat: () => { V.cat = null; V.disc = null; render(); window.scrollTo(0, 0); },
+  kind: el => { V.kind = el.dataset.k; render(); },
+  newItem: () => { const c = CAT[V.cat]; draftItem = { kind: V.kind !== "all" ? V.kind : c.kinds[0] }; draftSeance = { photos: [] }; openSheet(itemForm(draftItem)); },
+  editItem: el => { const [, it] = findItem(el.dataset.id); draftItem = { ...it }; draftSeance = { photos: [...(it.photos || [])] }; openSheet(itemForm(draftItem)); },
+  delItem: async el => { if (!(await ask("Supprimer cet élément ?", "Supprimer"))) return; S.library[V.cat] = (S.library[V.cat] || []).filter(x => x.id !== el.dataset.id); if (V.disc === el.dataset.id) V.disc = null; save(); },
+  planItem: (el, e) => { e.stopPropagation(); const [cat, it] = findItem(el.dataset.id); eventSheet(V.sel, { libId: it.id, title: it.title, duration: it.duration, cat, kind: "activite" }); },
+  closeSheet: () => closeSheet(),
+  healthImport: () => openSheet(healthSheet()),
+  openEnt: (el, e) => { e.stopPropagation(); const o = findEnt(el.dataset.kind, el.dataset.id); if (o) openSheet(entDetail(el.dataset.kind, o)); },
+  newEnt: el => { draftSeance = { photos: [] }; openSheet(entForm(el.dataset.kind, {})); },
+  editEnt: el => { const o = findEnt(el.dataset.kind, el.dataset.id); draftSeance = { photos: [...(o.photos || [])] }; openSheet(entForm(el.dataset.kind, o)); },
+  delEnt: async el => { if (!(await ask("Supprimer définitivement ?", "Supprimer"))) return; const l = ENT[el.dataset.kind].list(), i = l.findIndex(x => x.id === el.dataset.id); if (i >= 0) l.splice(i, 1); save(); },
+  tTab: el => { V.tTab = el.dataset.k; render(); },
+  goalDone: el => {
+    const [cat, it] = findItem(V.disc), g = it.goals.find(x => x.id === el.dataset.id);
+    draftSeance = { photos: [], track: null, base: { cat, libId: it.id, title: it.title, duration: it.duration, date: today(), project: g.title }, goalId: g.id };
+    openSheet(seanceForm(draftSeance.base));
+  },
+  wishDone: el => {
+    const w = findEnt("wish", el.dataset.id); w.done = true;
+    const t = { id: uid(), title: w.title, place: w.place || "", start: today(), end: "", note: "", photos: [], links: [] };
+    S.travel.trips.push(t); V.tTab = "trips"; save(); draftSeance = { photos: [] }; openSheet(entForm("trip", t)); toast("Ajouté à tes voyages réalisés");
+  },
+  momentDone: el => { const m = findEnt("moment", el.dataset.id); m.done = true; m.doneDate = today(); draftSeance = { photos: [...(m.photos || [])] }; openSheet(entForm("moment", m)); },
+  openSubject: el => { V.subject = el.dataset.k; render(); window.scrollTo(0, 0); },
+  closeSubject: () => { V.subject = null; render(); window.scrollTo(0, 0); },
+  savAll: () => { V.savAll = true; render(); },
+  openFiche: el => openSheet(ficheSheet(S.learn.fiches.find(f => f.id === el.dataset.id))),
+  ficheStatus: el => { const f = S.learn.fiches.find(x => x.id === el.dataset.id); f.status = el.dataset.k; f.streak = 0; save(); openSheet(ficheSheet(f)); toast(f.status === "known" ? "Fiche maîtrisée" : "Fiche à revoir"); },
+  newFiche: () => openSheet(ficheForm({ subject: V.subject || "histoire" })),
+  editFiche: el => openSheet(ficheForm(S.learn.fiches.find(f => f.id === el.dataset.id))),
+  delFiche: async el => { if (!(await ask("Supprimer cette fiche ?", "Supprimer"))) return; S.learn.fiches = S.learn.fiches.filter(f => f.id !== el.dataset.id); save(); },
+  importFiches: () => openSheet(importSheet()),
+  quiz: el => startQuiz(el.dataset.k),
+  quizAns: el => {
+    const it = Q.items[Q.i]; Q.picked = Number(el.dataset.k); const good = Q.picked === it.q.a, f = it.f;
+    if (good) { Q.ok++; f.ok++; f.streak = (f.streak || 0) + 1; if (f.streak >= 2 && f.status !== "known" && !Q.res[f.id]) f.status = "known"; }
+    else { f.ko++; f.streak = 0; f.status = "read"; Q.res[f.id] = "ko"; }
+    save(false); $("#sheet .sheet").innerHTML = quizHtml();
+  },
+  quizNext: () => { Q.i++; Q.picked = null; $("#sheet .sheet").innerHTML = quizHtml(); if (Q.i >= Q.items.length) render(); },
+  quizAgain: () => { Q.items = shuffle(Q.items); Q.i = 0; Q.ok = 0; Q.picked = null; Q.res = {}; $("#sheet .sheet").innerHTML = quizHtml(); },
+  openDisc: el => { V.disc = el.dataset.id; V.galYear = "all"; render(); window.scrollTo(0, 0); },
+  closeDisc: () => { V.disc = null; render(); window.scrollTo(0, 0); },
+  toggleSub: el => { if (el.dataset.scope === "disc" && el.dataset.list === "goals") { const g = findItem(V.disc)[1].goals.find(x => x.id === el.dataset.id); if (!g.done) return ACT.goalDone(el); }
+    const [o, l] = getSub(el.dataset.scope, el.dataset.list), x = o[l].find(g => g.id === el.dataset.id); if (l === "gear") x.owned = !x.owned; else x.done = !x.done; afterSub(el.dataset.scope); },
+  delSub: el => { const [o, l] = getSub(el.dataset.scope, el.dataset.list); o[l] = o[l].filter(g => g.id !== el.dataset.id); afterSub(el.dataset.scope); },
+  newLife: () => { draftSeance = { photos: [] }; openSheet(lifeForm({})); },
+  openLife: el => openSheet(lifeDetail(S.life.projects.find(p => p.id === el.dataset.id))),
+  editLife: el => { const p = S.life.projects.find(x => x.id === el.dataset.id); draftSeance = { photos: [...(p.photos || [])], base: p }; openSheet(lifeForm(p)); },
+  delLife: async el => { if (!(await ask("Supprimer ce projet ?", "Supprimer"))) return; S.life.projects = S.life.projects.filter(x => x.id !== el.dataset.id); save(); },
+  newSleep: el => openSheet(sleepForm(el.dataset.d || today())),
+  newMeal: () => { draftSeance = { photos: [] }; openSheet(mealForm({})); },
+  editMeal: el => { const m = S.health.meals.find(x => x.id === el.dataset.id); draftSeance = { photos: [...(m.photos || [])], base: m }; openSheet(mealForm(m)); },
+  delMeal: async el => { if (!(await ask("Supprimer ce repas ?", "Supprimer"))) return; S.health.meals = S.health.meals.filter(x => x.id !== el.dataset.id); save(); },
+  mType: el => { V.mType = el.dataset.k; render(); },
+  mStatus: el => { V.mStatus = el.dataset.k; render(); },
+  newMedia: () => { draftSeance = { photos: [] }; openSheet(mediaForm({ type: V.mType !== "all" ? V.mType : "livre", status: "todo" })); },
+  openMedia: el => { V.media = el.dataset.id; openSheet(mediaDetail(S.media.find(m => m.id === el.dataset.id))); },
+  editMedia: el => { const m = S.media.find(x => x.id === el.dataset.id); draftSeance = { photos: [...(m.photos || [])], base: m }; openSheet(mediaForm(m)); },
+  delMedia: async el => { if (!(await ask("Supprimer de ta bibliothèque ?", "Supprimer"))) return; S.media = S.media.filter(x => x.id !== el.dataset.id); save(); },
+  newSeance: () => { const [cat, it] = findItem(V.disc); openSeance({ cat, libId: it.id, title: it.title, duration: it.duration, date: today() }); },
+  editSeance: (el, e) => { e.stopPropagation(); const ev = S.events.find(x => x.id === el.dataset.id); if (ev) openSeance(ev); },
+  delSeance: async el => { if (!(await ask("Supprimer cette séance et ses photos ?", "Supprimer"))) return; S.events = S.events.filter(x => x.id !== el.dataset.id); save(); },
+  rmSPhoto: el => { draftSeance.photos.splice(Number(el.dataset.i), 1); $("#sphotos").innerHTML = thumbsHtml(); },
+  galSort: el => { V.galSort = el.dataset.k; render(); },
+  galYear: el => { V.galYear = el.dataset.k; render(); },
+  viewPhoto: el => {
+    const ev = S.events.find(x => x.id === el.dataset.id);
+    if (!ev) { const it = findItem(V.disc)[1]; return openSheet(`<div class="row between"><h2 style="margin:0">${esc(it.title)}</h2><button class="x" data-act="closeSheet">×</button></div><img src="${it.photos[Number(el.dataset.i)]}" alt="" style="width:100%;border-radius:14px;margin-top:12px;display:block">`); }
+    const src = ev.photos[Number(el.dataset.i)];
+    openSheet(`<div class="row between"><h2 style="margin:0;text-transform:capitalize">${fmtLong(ev.date)}</h2><button class="x" data-act="closeSheet">×</button></div>
+      ${ev.place ? `<div class="faint row" style="gap:4px;margin-top:4px">${ico("pin")} ${esc(ev.place)}</div>` : ""}
+      <img src="${src}" alt="" style="width:100%;border-radius:14px;margin-top:12px;display:block">
+      <div class="stat-row" style="margin-top:10px">${seanceStats(ev)}</div>
+      <div class="row" style="margin-top:14px"><span class="grow"></span><button class="btn ghost" data-act="editSeance" data-id="${ev.id}">Voir la séance</button></div>`);
+  },
+  agView: el => { V.agView = el.dataset.k; V.cursor = V.sel; render(); },
+  nav: el => {
+    const s = Number(el.dataset.v), d = parse(V.cursor);
+    if (V.agView === "semaine") V.cursor = addDays(V.cursor, 7 * s);
+    else if (V.agView === "mois") V.cursor = iso(new Date(d.getFullYear(), d.getMonth() + s, 1));
+    else V.cursor = iso(new Date(d.getFullYear() + s, 0, 1));
+    render();
+  },
+  goToday: () => { V.sel = V.cursor = today(); render(); },
+  selDay: el => {
+    const d = el.dataset.d;
+    if (V.sel === d) return eventSheet(d);          // 2e toucher sur la même date : ajouter
+    V.sel = d; if (V.agView === "semaine") V.cursor = d; render();
+  },
+  addOn: (el, e) => { e.stopPropagation(); V.sel = el.dataset.d; eventSheet(el.dataset.d); },
+  openMonth: el => { V.agView = "mois"; V.cursor = iso(new Date(parse(V.cursor).getFullYear(), Number(el.dataset.m), 1)); render(); },
+  togglePeriod: el => { const d = el.dataset.d, s = new Set(S.cycle.days); s.has(d) ? s.delete(d) : s.add(d); S.cycle.days = [...s].sort(); save(); },
+  setDayV: el => { const d = el.dataset.d, k = el.dataset.k, v = Number(el.dataset.v); setDay(d, { [k]: getDay(d)[k] === v ? null : v }); save(); },
+  toggleTag: el => { const d = el.dataset.d, t = el.dataset.k, tags = new Set(getDay(d).tags || []); tags.has(t) ? tags.delete(t) : tags.add(t); setDay(d, { tags: [...tags] }); save(); },
+  newEvent: el => eventSheet(el.dataset.d),
+  toggleEvent: el => { const e = S.events.find(x => x.id === el.dataset.id); e.done = !e.done; save(); },
+  delEvent: async el => { if (!(await ask("Supprimer cet élément du programme ?", "Supprimer"))) return; S.events = S.events.filter(x => x.id !== el.dataset.id); save(); },
+  range: el => { V.range = Number(el.dataset.v); render(); },
+  theme: el => { S.settings.theme = el.dataset.k; save(); },
+  setPin: () => pinSheet(),
+  removePin: async () => { if (!(await ask("Retirer le code ? Tes données ne seront plus chiffrées.", "Retirer"))) return; KEY = null; SALT = null; await persist(); render(); toast("Code retiré"); },
+  lockNow: () => lockNow(),
+  exportData: async () => {
+    const filename = `marieme-sauvegarde-${today()}.json`;
+    if (window.claude && claude.use) {   // ouverte dans Claude : on passe par la fonction de téléchargement de Claude
+      try { const dl = await claude.use("downloads"); if (dl) { await dl.save({ filename, data: JSON.stringify(S) }); toast("Sauvegarde exportée ✓"); return; } }
+      catch (err) { toast("Export annulé"); return; }
+    }
+    const blob = new Blob([JSON.stringify(S)], { type: "application/json" }), a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    toast("Sauvegarde exportée ✓");
+  },
+  wipe: async () => { if (!(await ask("Effacer toutes les données de cet appareil ? C'est définitif.", "Tout effacer"))) return; KEY = null; SALT = null; S = normalize(null); await persist(); V.tab = "home"; render(); },
+};
+document.addEventListener("click", e => {
+  const el = e.target.closest("[data-act]"); if (!el || !ACT[el.dataset.act]) return;
+  if (el.tagName === "BUTTON" && el.closest("form") && el.type !== "submit") e.preventDefault();
+  ACT[el.dataset.act](el, e);
+});
+
+/* ---- Import Apple Santé (texte copié par le raccourci iPhone) ---- */
+const num = v => { const m = String(v).replace(/[\s\u00a0\u202f]/g, "").replace(",", ".").match(/-?\d+(\.\d+)?/); return m ? Number(m[0]) : NaN; };
+function toMinutes(v, k) {
+  const s = String(v).toLowerCase().replace(",", ".");
+  const h = s.match(/(\d+(?:\.\d+)?)\s*h/), mn = s.match(/(\d+(?:\.\d+)?)\s*min/), sec = s.match(/(\d+(?:\.\d+)?)\s*s(ec)?\b/);
+  if (h || mn) return (h ? Number(h[1]) * 60 : 0) + (mn ? Number(mn[1]) : 0);
+  if (sec) return Number(sec[1]) / 60;
+  const n = num(s); if (isNaN(n)) return NaN;
+  if (/_h\b|heure/.test(k)) return n * 60; if (/_s\b|sec/.test(k)) return n / 60; if (/_min|min/.test(k)) return n;
+  return n > 1440 ? n / 60 : n <= 24 && /sommeil|sleep/.test(k) ? n * 60 : n;
+}
+function parseHealth(txt) {
+  const out = {}; let date = null;
+  for (const raw of String(txt).split(/\n|;/)) {
+    const m = raw.match(/^\s*([^:=]+?)\s*[:=]\s*(.+)$/); if (!m) continue;
+    const k = m[1].toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim(), v = m[2].trim();
+    if (k.startsWith("date")) { let d = v.match(/(\d{4})-(\d{1,2})-(\d{1,2})/); if (d) date = `${d[1]}-${pad(+d[2])}-${pad(+d[3])}`; else if ((d = v.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/))) date = `${d[3]}-${pad(+d[2])}-${pad(+d[1])}`; continue; }
+    if (/pas|step/.test(k)) { const n = num(v); if (!isNaN(n)) out.steps = Math.round(n); }
+    else if (/sommeil|sleep/.test(k)) { const n = toMinutes(v, k); if (!isNaN(n)) out.sleep = Math.round(n / 60 * 100) / 100; }
+    else if (/exerc|entrain|workout|sport/.test(k)) { const n = toMinutes(v, k); if (!isNaN(n)) out.exApple = Math.round(n); }
+    else if (/eau|water/.test(k)) { let n = num(v); if (!isNaN(n)) out.water = Math.round(/\bl\b|litre/i.test(v) || n < 10 ? n * 1000 : n); }
+    else if (/distance/.test(k)) { let n = num(v); if (!isNaN(n)) out.walkKm = Math.round((/\bm\b/.test(v) && n > 100 ? n / 1000 : n) * 100) / 100; }
+  }
+  return { date, data: out };
+}
+function healthSheet() {
+  return `<form data-form="healthImport">
+    <div class="row between"><h2 style="margin:0">Importer depuis Apple Santé</h2><button type="button" class="x" data-act="closeSheet">×</button></div>
+    <p class="sub">Lance ton raccourci « MarieMe Santé » sur l'iPhone, puis reviens ici et colle le texte (appui long → Coller).</p>
+    <textarea name="t" style="min-height:140px;font-family:ui-monospace,monospace;font-size:13px" placeholder="date: 2026-11-12&#10;pas: 8523&#10;sommeil: 7 h 32 min&#10;exercice: 45&#10;distance: 6,2"></textarea>
+    <div id="hprev" class="faint" style="margin-top:8px"></div>
+    <div class="row" style="margin-top:12px"><span class="grow"></span><button class="btn">Importer</button></div></form>`;
+}
+document.addEventListener("input", e => {
+  if (e.target.closest?.("[data-form=healthImport]") && e.target.name === "t") {
+    const r = parseHealth(e.target.value), d = r.data;
+    $("#hprev").innerHTML = Object.keys(d).length ? `Pour le ${fmtLong(r.date || today())} : ${[d.steps != null ? nf(d.steps) + " pas" : "", d.sleep != null ? f1(d.sleep) + " h de sommeil" : "", d.exApple != null ? d.exApple + " min d'exercice" : "", d.walkKm != null ? f1(d.walkKm) + " km" : "", d.water != null ? (d.water / 1000).toFixed(2).replace(".", ",") + " L d'eau" : ""].filter(Boolean).join(" · ")}` : "";
+  }
+});
+
+/* ---- Réorganiser les cartes par appui long (doigt ou souris) ---- */
+const ordered = (list, order) => { if (!order?.length) return list; const ix = id => { const i = order.indexOf(id); return i < 0 ? 999 : i; }; return list.slice().sort((a, b) => ix(a.id) - ix(b.id)); };
+function applyOrder(box, ids) {
+  if (box === "cats") S.settings.catOrder = ids;
+  else if (box === "subj") S.settings.subjOrder = ids;
+  else if (box.startsWith("disc:")) { const cid = box.slice(5), lib = S.library[cid] || []; const ix = id => { const i = ids.indexOf(id); return i < 0 ? 999 : i; }; S.library[cid] = lib.slice().sort((a, b) => ix(a.id) - ix(b.id)); }
+}
+let DR = null, swallowClick = false;
+document.addEventListener("pointerdown", e => {
+  const el = e.target.closest?.("[data-sort]"); if (!el || e.button > 0) return;
+  const st = { el, x: e.clientX, y: e.clientY, on: false };
+  st.t = setTimeout(() => { st.on = true; el.classList.add("dragging"); el.parentElement.classList.add("sorting"); try { navigator.vibrate?.(12); } catch (err) {} }, 400);
+  DR = st;
+});
+document.addEventListener("pointermove", e => {
+  if (!DR) return;
+  if (!DR.on) { if (Math.hypot(e.clientX - DR.x, e.clientY - DR.y) > 8) { clearTimeout(DR.t); DR = null; } return; }
+  e.preventDefault();
+  const over = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-sort]");
+  if (over && over !== DR.el && over.parentElement === DR.el.parentElement) {
+    const kids = [...over.parentElement.children], iO = kids.indexOf(over), iD = kids.indexOf(DR.el);
+    over.parentElement.insertBefore(DR.el, iO > iD ? over.nextSibling : over);
+  }
+  if (e.clientY < 70) window.scrollBy(0, -14); else if (e.clientY > window.innerHeight - 120) window.scrollBy(0, 14);
+}, { passive: false });
+function endDrag() {
+  if (!DR) return; clearTimeout(DR.t);
+  if (DR.on) {
+    const box = DR.el.parentElement;
+    applyOrder(box.dataset.sortbox, [...box.children].filter(x => x.dataset.sort).map(x => x.dataset.sort));
+    DR.el.classList.remove("dragging"); box.classList.remove("sorting");
+    swallowClick = true; setTimeout(() => swallowClick = false, 400);
+    save(false); toast("Ordre enregistré");
+  }
+  DR = null;
+}
+document.addEventListener("pointerup", endDrag);
+document.addEventListener("pointercancel", () => { if (DR && !DR.on) { clearTimeout(DR.t); DR = null; } else endDrag(); });
+document.addEventListener("touchmove", e => { if (DR?.on) e.preventDefault(); }, { passive: false });
+document.addEventListener("contextmenu", e => { if (e.target.closest?.("[data-sort]")) e.preventDefault(); });
+document.addEventListener("click", e => { if (swallowClick) { e.preventDefault(); e.stopPropagation(); } }, true);
+
+/* ---- Champs modifiés ---- */
+document.addEventListener("change", async e => {
+  const el = e.target, k = el.dataset.ch; if (!k) return;
+  if (k === "note") { setDay(el.dataset.d, { note: el.value }); save(false); toast("Ressenti enregistré"); }
+  else if (k === "dayval") { setDay(el.dataset.d, { [el.dataset.k]: el.value === "" ? null : Number(el.value) }); save(false); }
+  else if (k === "profile") { const num = el.type === "number"; S.profile[el.dataset.k] = num ? (el.value === "" ? "" : Number(el.value)) : el.value; save(false); }
+  else if (k === "autoLock") { S.settings.autoLock = Number(el.value); save(false); }
+  else if (k === "itemKind") { const form = el.closest("form"); collectItem(form); draftItem.kind = el.value; $("#sheet .sheet").innerHTML = itemForm(draftItem); }
+  else if (k === "photo") {
+    const f = el.files[0]; if (!f) return;
+    try { draftItem.photo = await resizeImage(f); $("#phprev").innerHTML = `<img src="${draftItem.photo}" style="max-width:140px;border-radius:12px">`; }
+    catch (err) { toast("Image illisible (format HEIC ? essaie en JPEG)"); }
+  }
+  else if (k === "discTitle") {
+    const P = PRESETS[V.cat]?.[el.value.trim()]; if (!P || draftItem.id) return;
+    const form = el.closest("form"); collectItem(form); draftItem.fields = P.f; draftItem.gpx = !!P.gpx; if (!draftItem.duration && P.d) draftItem.duration = P.d;
+    $("#sheet .sheet").innerHTML = itemForm(draftItem);
+  }
+  else if (k === "ficheFile") { const f = el.files[0]; if (f) el.closest("form").data.value = await f.text(); }
+  else if (k === "seancePhotos") {
+    const files = [...el.files]; if (!files.length) return;
+    toast("Ajout des photos…");
+    for (const f of files) { try { draftSeance.photos.push(await resizeImage(f)); } catch (err) { toast("Une image est illisible (HEIC ? essaie en JPEG)"); } }
+    $("#sphotos").innerHTML = thumbsHtml(); el.value = "";
+  }
+  else if (k === "gpx") {
+    const f = el.files[0]; if (!f) return;
+    try {
+      const g = parseGPX(await f.text()), form = el.closest("form");
+      const keep = Object.fromEntries(new FormData(form).entries());
+      draftSeance.track = g.track;
+      const e = { ...draftSeance.base, ...keep, mood: Number(keep.mood) || draftSeance.base.mood,
+        distance: g.distance || keep.distance, elevation: g.elevation || keep.elevation, duration: g.duration || keep.duration,
+        date: g.date || keep.date, time: g.time || keep.time, place: keep.place || g.name };
+      $("#sheet .sheet").innerHTML = seanceForm(e);
+      toast(`GPX importé : ${fmtKm(g.distance)}${discFields(findItem(draftSeance.base.libId)[1]).includes("elevation") ? `, ${nf(g.elevation)} m D+` : ""}`);
+    } catch (err) { toast("Fichier GPX illisible"); }
+  }
+  else if (k === "evCat") fillActs(el.closest("form"));
+  else if (k === "evTime") { const f = el.closest("form"); if (f.time.value && f.end.value) { const m = x => { const [h, mm] = x.split(":").map(Number); return h * 60 + mm; }; f.duration.value = (m(f.end.value) - m(f.time.value) + 1440) % 1440; } }
+  else if (k === "evAct") updateEv(el.closest("form"), true);
+  else if (k === "pickAct") {
+    const form = el.closest("form"), [cat, it] = findItem(el.value);
+    form.libId.value = it ? it.id : ""; $("#addLibRow").hidden = !!it;
+    if (it) { form.title.value = it.title; form.duration.value = it.duration || ""; form.cat.value = cat; form.kind.value = "activite"; }
+  }
+  else if (k === "importData") {
+    const f = el.files[0]; if (!f) return;
+    try {
+      const data = JSON.parse(await f.text());
+      if (!data || typeof data !== "object" || !data.profile) throw new Error();
+      if (!(await ask("Remplacer les données actuelles par cette sauvegarde ?", "Importer"))) return;
+      S = normalize(data); carryOver(); await persist(); render(); toast("Sauvegarde importée ✓");
+    } catch (err) { toast("Fichier de sauvegarde invalide"); }
+  }
+});
+function collectItem(form) {
+  const fd = new FormData(form);
+  for (const [k, v] of fd.entries()) if (k !== "photo") draftItem[k] = v;
+  draftItem.done = !!form.done?.checked;
+  if (draftItem.kind === "discipline" && CAT_FIELDS[V.cat]?.length) {
+    draftItem.fields = CAT_FIELDS[V.cat].filter(x => form["f_" + x]?.checked);
+    if (V.cat === "sport") draftItem.gpx = !!form.gpx?.checked;
+    for (const x of CAT_FIELDS[V.cat]) delete draftItem["f_" + x];
+  }
+}
+
+/* ---- Formulaires ---- */
+document.addEventListener("submit", async e => {
+  const form = e.target, k = form.dataset.form; if (!k) return;
+  e.preventDefault();
+  if (k === "addTodo") {
+    const v = form.t.value.trim(); if (!v) return;
+    S.todos.push({ id: uid(), text: v, date: form.dataset.date, done: false }); save();
+    $(`[data-form=addTodo] input`)?.focus();
+  } else if (k === "addSub") {
+    const sc = form.dataset.scope, [o, l] = getSub(sc, form.dataset.list), t = form.t.value.trim(); if (!t || !o) return;
+    const x = { id: uid(), title: t, date: form.d?.value || "", note: form.n?.value.trim() || "", done: false };
+    if (l === "gear") x.owned = true;
+    (o[l] = o[l] || []).push(x);
+    afterSub(sc); $(`[data-form=addSub][data-list=${l}] input`)?.focus();
+  } else if (k === "saveLife") {
+    const fd = Object.fromEntries(new FormData(form).entries()), b = draftSeance.base;
+    const p = b || { id: uid() }; Object.assign(p, { title: fd.title.trim(), horizon: fd.horizon, desc: fd.desc, progress: Number(fd.progress) || 0, photos: draftSeance.photos });
+    if (!b) S.life.projects.push(p); closeSheet(); save();
+  } else if (k === "saveSleep") {
+    const fd = Object.fromEntries(new FormData(form).entries());
+    let h = fd.hours === "" ? null : Number(fd.hours);
+    if (fd.bed && fd.wake) { const [a, b] = [fd.bed, fd.wake].map(x => { const [hh, mm] = x.split(":").map(Number); return hh * 60 + mm; }); h = Math.round(((b - a + 1440) % 1440) / 60 * 100) / 100; }
+    setDay(fd.date, { sleep: h, bed: fd.bed || null, wake: fd.wake || null, sleepQ: Number(fd.q) || null }); closeSheet(); save();
+  } else if (k === "saveMeal") {
+    const fd = Object.fromEntries(new FormData(form).entries()), b = draftSeance.base;
+    const m = b || { id: uid() }; Object.assign(m, { date: fd.date, type: fd.type, desc: fd.desc, mood: Number(fd.mood) || null, photos: draftSeance.photos });
+    if (!b) S.health.meals.push(m); closeSheet(); save();
+  } else if (k === "saveMedia") {
+    const fd = Object.fromEntries(new FormData(form).entries()), b = draftSeance.base;
+    const m = b || { id: uid(), quotes: [] }; Object.assign(m, { type: fd.type, status: fd.status, title: fd.title.trim(), author: fd.author, rating: Number(fd.rating) || null, date: fd.date, summary: fd.summary, photos: draftSeance.photos, updated: new Date().toISOString() });
+    if (!b) S.media.push(m); V.media = m.id; save(); openSheet(mediaDetail(m));
+  } else if (k === "saveFiche") {
+    const fd = Object.fromEntries(new FormData(form).entries());
+    const quiz = fd.quiz.split("\n").map(l => l.split("|").map(x => x.trim()).filter(Boolean)).filter(p => p.length >= 3).map(p => ({ q: p[0], c: p.slice(1), a: 0 }));
+    const data = { subject: fd.subject, title: fd.title.trim(), body: fd.body, keys: fd.keys.split("\n").map(x => x.trim()).filter(Boolean), quiz };
+    const ex = S.learn.fiches.find(f => f.id === form.dataset.id);
+    if (ex) Object.assign(ex, data); else S.learn.fiches.push(mkFiche(data));
+    closeSheet(); save();
+  } else if (k === "importFiches") {
+    try {
+      let txt = form.data.value.trim(); const m = txt.match(/\[[\s\S]*\]|\{[\s\S]*\}/); if (m) txt = m[0];
+      let data = JSON.parse(txt); if (!Array.isArray(data)) data = data.fiches || [data];
+      const n = addFiches(data); if (!n) throw new Error();
+      closeSheet(); save(); toast(`${n} fiche${n > 1 ? "s" : ""} ajoutée${n > 1 ? "s" : ""}`);
+    } catch (err) { $("#impErr").textContent = "Je n'ai pas reconnu de fiche dans ce texte. Vérifie que tout le bloc a été copié."; }
+  } else if (k === "healthImport") {
+    const r = parseHealth(form.t.value);
+    if (!Object.keys(r.data).length) { $("#hprev").textContent = "Je n'ai reconnu aucune donnée. Vérifie que tout le texte du raccourci a été collé."; return; }
+    const d = r.date || today(); setDay(d, r.data);
+    try { navigator.clipboard?.writeText(""); } catch (err) {}
+    closeSheet(); save(); toast(`Données du ${fmtShort(d)} importées`);
+  } else if (k === "saveEnt") {
+    const kind = form.dataset.kind, C = ENT[kind], fd = Object.fromEntries(new FormData(form).entries()), l = C.list();
+    let o = l.find(x => x.id === form.dataset.id); const isNew = !o; if (isNew) o = { id: uid(), done: false };
+    for (const [key, , t] of C.fields) o[key] = t === "number" ? (Number(fd[key]) || "") : (fd[key] || "").trim();
+    for (const key of ["doneDate", "donePlace", "story"]) if (key in fd) o[key] = fd[key];
+    if ("links" in fd) o.links = fd.links.split("\n").map(x => x.trim()).filter(Boolean).map(u => /^https?:\/\//.test(u) ? u : "https://" + u);
+    o.photos = draftSeance.photos; if (isNew) l.push(o);
+    save(); openSheet(entDetail(kind, o));
+  } else if (k === "saveSeance") {
+    const fd = Object.fromEntries(new FormData(form).entries()), b = draftSeance.base;
+    const ev = b.id ? S.events.find(x => x.id === b.id) : { id: uid(), kind: "activite", cat: b.cat, libId: b.libId, title: b.title };
+    Object.assign(ev, { date: fd.date, time: fd.time, duration: Number(fd.duration) || 0,
+      place: (fd.place || "").trim(), note: fd.note, mood: Number(fd.mood) || null, photos: draftSeance.photos, track: draftSeance.track });
+    for (const [k, F] of Object.entries(FIELDS)) if (k in fd) ev[k] = F.type === "number" ? (Number(fd[k]) || 0) : fd[k];
+    if (!b.id) { ev.done = fd.date <= today(); S.events.push(ev); }
+    if (draftSeance.goalId) { const g = (findItem(ev.libId)[1]?.goals || []).find(x => x.id === draftSeance.goalId); if (g) { g.done = true; g.seanceId = ev.id; ev.goalId = g.id; } }
+    closeSheet(); save(); { const one = (LABELS[ev.cat] || LABELS.sport).one; toast(ev.done ? `${one} enregistrée` : `${one} planifiée dans l'agenda`); }
+  } else if (k === "saveStat") {
+    const v = form.v.value; setDay(today(), { [form.dataset.k]: v === "" ? null : Number(v) }); closeSheet(); save();
+  } else if (k === "saveItem") {
+    collectItem(form);
+    const it = { ...draftItem };
+    if (it.duration) it.duration = Number(it.duration);
+    if (it.progress !== undefined) it.progress = Number(it.progress);
+    const list = S.library[V.cat] = S.library[V.cat] || [];
+    if (it.kind === "discipline") { it.goals = it.goals || []; it.gear = it.gear || []; if (V.cat === "mecatro") it.photos = draftSeance.photos; }
+    if (it.id) { const i = list.findIndex(x => x.id === it.id); list[i] = it; } else { it.id = uid(); list.push(it); if (it.kind === "discipline") V.disc = it.id; }
+    closeSheet(); save(); window.scrollTo(0, 0);
+  } else if (k === "saveEvent") {
+    const fd = Object.fromEntries(new FormData(form).entries()), c = fd.cat, rdv = c === "rdv";
+    const pick = !$("#evActRow").hidden && fd.libId && fd.libId !== "__new" ? fd.libId : null;
+    const it0 = pick ? findItem(pick)[1] : null, title = it0 ? it0.title : (fd.title || "").trim();
+    if (!title) return;
+    const ev = { id: uid(), date: fd.date, time: fd.time, title, kind: rdv ? "rdv" : "activite", cat: rdv ? "autre" : c, duration: Number(fd.duration) || 0, libId: pick, done: false };
+    if (fd.addLib && fd.libId === "__new" && CAT[c]?.kinds.includes("discipline")) {
+      const P = PRESETS[c]?.[title], lib = S.library[c] = S.library[c] || [];
+      const it = { id: uid(), kind: "discipline", title, duration: ev.duration || P?.d || 0, note: "", goals: [], gear: [], fields: P ? P.f : (c === "sport" ? ["distance"] : []), gpx: P ? !!P.gpx : c === "sport" };
+      lib.push(it); ev.libId = it.id;
+    }
+    S.events.push(ev); closeSheet();
+    if (V.tab !== "agenda" || V.cat) { toast(`Ajouté au ${fmtShort(ev.date)}`); }
+    save();
+  } else if (k === "savePin") {
+    const a = form.a.value, b = form.b.value;
+    if (a.length < 4) return $("#pinErr").textContent = "Au moins 4 caractères.";
+    if (a !== b) return $("#pinErr").textContent = "Les deux codes ne correspondent pas.";
+    SALT = crypto.getRandomValues(new Uint8Array(16)); KEY = await deriveKey(a, SALT);
+    await persist(); closeSheet(); render(); toast("Données chiffrées");
+  }
+});
+
+/* =========================================================
+   13. VERROUILLAGE & DÉMARRAGE
+   ========================================================= */
+async function lockNow() { clearTimeout(saveT); await persist(); S = null; KEY = null; closeSheet(); boot(); }
+let hiddenAt = 0;
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) { hiddenAt = Date.now(); if (S) persist(); }
+  else if (S) {
+    if (KEY && Date.now() - hiddenAt > (S.settings.autoLock || 5) * 60000) lockNow();
+    else if (carryOver() | archiveSavoir()) save(); else render();
+  }
+});
+function showLock(rec) {
+  $("#tabs").hidden = true;
+  $("#main").innerHTML = `<form class="lock" id="lockForm"><div class="ibox" style="width:64px;height:64px;border-radius:20px">${ico("lock")}</div><h1>MarieMe</h1><div class="sub">Entre ton code pour accéder à ton espace</div>
+    <input name="pin" type="password" inputmode="numeric" autocomplete="current-password" autofocus><div class="err" id="lockErr"></div><button class="btn">Déverrouiller</button></form>`;
+  $("#lockForm").addEventListener("submit", async e => {
+    e.preventDefault(); e.stopPropagation();
+    const pin = e.target.pin.value; $("#lockErr").textContent = "…";
+    try {
+      SALT = unb64(rec.salt); KEY = await deriveKey(pin, SALT);
+      const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: unb64(rec.iv) }, KEY, unb64(rec.ct));
+      S = normalize(JSON.parse(TD.decode(pt))); start();
+    } catch (err) { KEY = null; SALT = null; $("#lockErr").textContent = "Code incorrect"; e.target.pin.value = ""; }
+  });
+}
+function start() {
+  try { navigator.storage?.persist?.(); } catch (e) {}   // demande au navigateur de ne pas effacer les données
+  $("#tabs").hidden = false; if (carryOver() | archiveSavoir()) save(false); render(); }
+async function boot() {
+  if (!DB.db) await DB.open();
+  const rec = await DB.get("state");
+  if (rec && rec.enc) showLock(rec);
+  else { S = normalize(rec && rec.data ? JSON.parse(rec.data) : null); if (!rec) persist(); start(); }
+}
+boot();
+// Appli installable et utilisable hors connexion (fichier sw.js)
+if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>
