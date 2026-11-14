@@ -1764,20 +1764,32 @@ function toMinutes(v, k) {
   if (/_h\b|heure/.test(k)) return n * 60; if (/_s\b|sec/.test(k)) return n / 60; if (/_min|min/.test(k)) return n;
   return n > 1440 ? n / 60 : n <= 24 && /sommeil|sleep/.test(k) ? n * 60 : n;
 }
+const MOIS_P = ["jan", "fev", "mar", "avr", "mai", "juin", "juil", "aou", "sep", "oct", "nov", "dec"];
+function parseDateAny(v) {
+  const t = v.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  let d = t.match(/(\d{4})-(\d{1,2})-(\d{1,2})/); if (d) return `${d[1]}-${pad(+d[2])}-${pad(+d[3])}`;
+  if ((d = t.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/))) return `${d[3]}-${pad(+d[2])}-${pad(+d[1])}`;
+  if ((d = t.match(/(\d{1,2})\s+([a-z]+)\.?\s+(\d{4})/))) { const mi = MOIS_P.findIndex(m => d[2].startsWith(m) || (m === "juin" && d[2].startsWith("jun")) || (m === "juil" && d[2].startsWith("jul"))); if (mi >= 0) return `${d[3]}-${pad(mi + 1)}-${pad(+d[1])}`; }
+  return null;
+}
+// Accepte un ou plusieurs jours : chaque « date: … » ouvre un nouveau jour
 function parseHealth(txt) {
-  const out = {}; let date = null;
+  const days = {}; let cur = null;
   for (const raw of String(txt).split(/\n|;/)) {
     const m = raw.match(/^\s*([^:=]+?)\s*[:=]\s*(.+)$/); if (!m) continue;
-    const k = m[1].toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim(), v = m[2].trim();
-    if (k.startsWith("date")) { let d = v.match(/(\d{4})-(\d{1,2})-(\d{1,2})/); if (d) date = `${d[1]}-${pad(+d[2])}-${pad(+d[3])}`; else if ((d = v.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/))) date = `${d[3]}-${pad(+d[2])}-${pad(+d[1])}`; continue; }
+    const k = m[1].toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim(), v = m[2].trim();
+    if (k.startsWith("date")) { cur = parseDateAny(v) || cur; continue; }
+    const out = days[cur || today()] = days[cur || today()] || {};
     if (/pas|step/.test(k)) { const n = num(v); if (!isNaN(n)) out.steps = Math.round(n); }
     else if (/sommeil|sleep/.test(k)) { const n = toMinutes(v, k); if (!isNaN(n)) out.sleep = Math.round(n / 60 * 100) / 100; }
     else if (/exerc|entrain|workout|sport/.test(k)) { const n = toMinutes(v, k); if (!isNaN(n)) out.exApple = Math.round(n); }
     else if (/eau|water/.test(k)) { let n = num(v); if (!isNaN(n)) out.water = Math.round(/\bl\b|litre/i.test(v) || n < 10 ? n * 1000 : n); }
     else if (/distance/.test(k)) { let n = num(v); if (!isNaN(n)) out.walkKm = Math.round((/\bm\b/.test(v) && n > 100 ? n / 1000 : n) * 100) / 100; }
   }
-  return { date, data: out };
+  for (const d of Object.keys(days)) if (!Object.keys(days[d]).length) delete days[d];
+  return days;
 }
+const healthLine = d => [d.steps != null ? nf(d.steps) + " pas" : "", d.sleep != null ? f1(d.sleep) + " h de sommeil" : "", d.exApple != null ? d.exApple + " min d'exercice" : "", d.walkKm != null ? f1(d.walkKm) + " km" : "", d.water != null ? (d.water / 1000).toFixed(2).replace(".", ",") + " L d'eau" : ""].filter(Boolean).join(" · ");
 function healthSheet() {
   return `<form data-form="healthImport">
     <div class="row between"><h2 style="margin:0">Importer depuis Apple Santé</h2><button type="button" class="x" data-act="closeSheet">×</button></div>
@@ -1788,8 +1800,9 @@ function healthSheet() {
 }
 document.addEventListener("input", e => {
   if (e.target.closest?.("[data-form=healthImport]") && e.target.name === "t") {
-    const r = parseHealth(e.target.value), d = r.data;
-    $("#hprev").innerHTML = Object.keys(d).length ? `Pour le ${fmtLong(r.date || today())} : ${[d.steps != null ? nf(d.steps) + " pas" : "", d.sleep != null ? f1(d.sleep) + " h de sommeil" : "", d.exApple != null ? d.exApple + " min d'exercice" : "", d.walkKm != null ? f1(d.walkKm) + " km" : "", d.water != null ? (d.water / 1000).toFixed(2).replace(".", ",") + " L d'eau" : ""].filter(Boolean).join(" · ")}` : "";
+    const days = parseHealth(e.target.value), ks = Object.keys(days).sort();
+    $("#hprev").innerHTML = !ks.length ? "" : ks.length === 1 ? `Pour le ${fmtLong(ks[0])} : ${healthLine(days[ks[0]])}`
+      : `<b>${ks.length} jours</b>, du ${fmtShort(ks[0])} ${ks[0].slice(0, 4)} au ${fmtShort(ks.at(-1))} ${ks.at(-1).slice(0, 4)}<br>Dernier jour : ${healthLine(days[ks.at(-1)])}`;
   }
 });
 
@@ -1948,11 +1961,11 @@ document.addEventListener("submit", async e => {
       closeSheet(); save(); toast(`${n} fiche${n > 1 ? "s" : ""} ajoutée${n > 1 ? "s" : ""}`);
     } catch (err) { $("#impErr").textContent = "Je n'ai pas reconnu de fiche dans ce texte. Vérifie que tout le bloc a été copié."; }
   } else if (k === "healthImport") {
-    const r = parseHealth(form.t.value);
-    if (!Object.keys(r.data).length) { $("#hprev").textContent = "Je n'ai reconnu aucune donnée. Vérifie que tout le texte du raccourci a été collé."; return; }
-    const d = r.date || today(); setDay(d, r.data);
+    const days = parseHealth(form.t.value), ks = Object.keys(days).sort();
+    if (!ks.length) { $("#hprev").textContent = "Je n'ai reconnu aucune donnée. Vérifie que tout le texte du raccourci a été collé."; return; }
+    for (const d of ks) setDay(d, days[d]);
     try { navigator.clipboard?.writeText(""); } catch (err) {}
-    closeSheet(); save(); toast(`Données du ${fmtShort(d)} importées`);
+    closeSheet(); save(); toast(ks.length === 1 ? `Données du ${fmtShort(ks[0])} importées` : `${ks.length} jours importés`);
   } else if (k === "saveEnt") {
     const kind = form.dataset.kind, C = ENT[kind], fd = Object.fromEntries(new FormData(form).entries()), l = C.list();
     let o = l.find(x => x.id === form.dataset.id); const isNew = !o; if (isNew) o = { id: uid(), done: false };
