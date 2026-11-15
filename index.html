@@ -1403,7 +1403,7 @@ function mealForm(m) {
     <div class="row" style="margin-top:16px">${m.id ? `<button type="button" class="btn danger" data-act="delMeal" data-id="${m.id}">Supprimer</button>` : ""}<span class="grow"></span><button class="btn">Enregistrer</button></div></form>`;
 }
 
-const MTYPES = { livre: "Livre", film: "Film", serie: "Série" };
+const MTYPES = { livre: "Livre", film: "Film", serie: "Série", musique: "Musique" };
 const MSTATUS = { todo: "À découvrir", doing: "En cours", done: "Terminé" };
 const stars = n => n ? "★".repeat(n) + "☆".repeat(5 - n) : "";
 function viewMedia() {
@@ -1432,7 +1432,8 @@ function mediaForm(m) {
       <div><label>Type</label><select name="type">${Object.entries(MTYPES).map(([k, n]) => `<option value="${k}" ${m.type === k ? "selected" : ""}>${n}</option>`).join("")}</select></div>
       <div><label>Statut</label><select name="status">${Object.entries(MSTATUS).map(([k, n]) => `<option value="${k}" ${m.status === k ? "selected" : ""}>${n}</option>`).join("")}</select></div></div>
     <label>Titre</label><input name="title" required value="${esc(m.title || "")}">
-    <label>Auteur·rice / réalisation</label><input name="author" value="${esc(m.author || "")}">
+    <label>Auteur·rice / réalisation / artiste</label><input name="author" value="${esc(m.author || "")}">
+    <label>Lien (Spotify, Deezer, YouTube…)</label><input name="link" type="url" inputmode="url" placeholder="https://…" value="${esc(m.link || "")}">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 10px">
       <div><label>Ma note</label><select name="rating"><option value="">—</option>${[1, 2, 3, 4, 5].map(n => `<option value="${n}" ${m.rating == n ? "selected" : ""}>${stars(n)}</option>`).join("")}</select></div>
       <div><label>Terminé le</label><input name="date" type="date" value="${m.date || ""}"></div></div>
@@ -1443,7 +1444,7 @@ function mediaForm(m) {
 }
 function mediaDetail(m) {
   return `<div class="row between"><div><div class="faint">${MTYPES[m.type]} · ${MSTATUS[m.status]}${m.date ? " · " + fmtShort(m.date) + " " + m.date.slice(0, 4) : ""}</div><h2 style="margin:2px 0 0">${esc(m.title)}</h2></div><button class="x" data-act="closeSheet">×</button></div>
-    ${m.author ? `<div class="sub">${esc(m.author)}</div>` : ""}${m.rating ? `<div style="color:var(--hl);margin-top:4px">${stars(m.rating)}</div>` : ""}
+    ${m.author ? `<div class="sub">${esc(m.author)}</div>` : ""}${/^https?:\/\//.test(m.link || "") ? `<a class="btn ghost sm" style="margin-top:8px;display:inline-flex;text-decoration:none;color:var(--text)" href="${esc(m.link)}" target="_blank" rel="noopener">${m.type === "musique" ? "▶ Écouter" : "Ouvrir le lien"}</a>` : ""}${m.rating ? `<div style="color:var(--hl);margin-top:4px">${stars(m.rating)}</div>` : ""}
     ${(m.photos || []).length ? `<div class="thumbs" style="margin-top:12px">${m.photos.map(src => `<img src="${src}" alt="" style="width:96px;height:96px">`).join("")}</div>` : ""}
     ${(() => { const ss = mediaSessions(m), mins = ss.reduce((a, e) => a + (Number(e.duration) || 0), 0);
       return `<div class="card" style="margin:14px 0 0;background:var(--card2);padding:12px"><div class="row between"><div><div class="faint">Temps passé</div><div style="font-size:20px;font-weight:700">${fmtDur(mins)} <small class="faint">· ${ss.length} session${ss.length > 1 ? "s" : ""}</small></div></div>
@@ -2294,7 +2295,7 @@ document.addEventListener("submit", async e => {
     if (!b) S.health.meals.push(m); closeSheet(); save();
   } else if (k === "saveMedia") {
     const fd = Object.fromEntries(new FormData(form).entries()), b = draftSeance.base;
-    const m = b || { id: uid(), quotes: [] }; Object.assign(m, { type: fd.type, status: fd.status, title: fd.title.trim(), author: fd.author, rating: Number(fd.rating) || null, date: fd.date, summary: fd.summary, photos: draftSeance.photos, updated: new Date().toISOString() });
+    const m = b || { id: uid(), quotes: [] }; Object.assign(m, { type: fd.type, status: fd.status, title: fd.title.trim(), author: fd.author, link: (fd.link || "").trim(), rating: Number(fd.rating) || null, date: fd.date, summary: fd.summary, photos: draftSeance.photos, updated: new Date().toISOString() });
     if (!b) S.media.push(m); V.media = m.id; save(); openSheet(mediaDetail(m));
   } else if (k === "saveFiche") {
     const fd = Object.fromEntries(new FormData(form).entries());
