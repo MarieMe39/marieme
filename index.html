@@ -173,6 +173,8 @@ table.data th{color:var(--muted);font-weight:600}
 .gal{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
 @media(min-width:620px){.gal{grid-template-columns:repeat(3,1fr)}}
 .ph{border-radius:16px;overflow:hidden;background:var(--card2);cursor:pointer;position:relative}
+.hasvid{position:relative}.hasvid::after{content:"";position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;background:rgba(0,0,0,.55) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 7l9 5-9 5z' fill='white'/%3E%3C/svg%3E") center/20px no-repeat;pointer-events:none}
+img.noimg{visibility:hidden}
 .ph img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
 .ph .cap{position:absolute;left:0;right:0;bottom:0;padding:22px 10px 8px;background:linear-gradient(transparent,rgba(0,0,0,.75));color:#fff;font-size:12px}
 .ph .cap b{display:block;font-size:13px}
@@ -424,8 +426,8 @@ const DB = {
   async open() {
     try {
       this.db = await new Promise((res, rej) => {
-        const r = indexedDB.open("marieme", 1);
-        r.onupgradeneeded = () => r.result.createObjectStore("kv");
+        const r = indexedDB.open("marieme", 2);
+        r.onupgradeneeded = () => { const db = r.result; if (!db.objectStoreNames.contains("kv")) db.createObjectStore("kv"); if (!db.objectStoreNames.contains("media")) db.createObjectStore("media"); };
         r.onsuccess = () => res(r.result);
         r.onerror = () => rej(r.error);
       });
@@ -471,6 +473,150 @@ async function persist() {
 }
 let saveT;
 function save(rerender = true) { clearTimeout(saveT); saveT = setTimeout(persist, 250); if (rerender) render(); }
+
+/* =========================================================
+   3 bis. PHOTOS & VIDÉOS (coffre chiffré)
+   Chaque fichier est découpé en morceaux de 4 Mo, chiffrés en
+   AES-256-GCM avec une clé « médias » rangée dans tes données
+   (elles-mêmes protégées par ton code). Dans les données, une
+   photo est notée « m:<id> » et une vidéo « v:<id> ».
+   ========================================================= */
+const CHUNK = 4 * 1024 * 1024;
+const MDB = {
+  tx(mode) { return DB.db.transaction("media", mode).objectStore("media"); },
+  get(k) { return new Promise(res => { try { const q = this.tx("readonly").get(k); q.onsuccess = () => res(q.result); q.onerror = () => res(undefined); } catch (e) { res(undefined); } }); },
+  put(k, v) { return new Promise((res, rej) => { try { const tx = DB.db.transaction("media", "readwrite"); tx.objectStore("media").put(v, k); tx.oncomplete = () => res(true); tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error || new Error("quota")); } catch (e) { rej(e); } }); },
+  del(keys) { return new Promise(res => { try { const tx = DB.db.transaction("media", "readwrite"), st = tx.objectStore("media"); keys.forEach(k => st.delete(k)); tx.oncomplete = () => res(true); tx.onerror = () => res(false); } catch (e) { res(false); } }); },
+  keys() { return new Promise(res => { try { const q = this.tx("readonly").getAllKeys(); q.onsuccess = () => res(q.result || []); q.onerror = () => res([]); } catch (e) { res([]); } }); },
+  clear() { return new Promise(res => { try { const tx = DB.db.transaction("media", "readwrite"); tx.objectStore("media").clear(); tx.oncomplete = () => res(true); } catch (e) { res(false); } }); },
+};
+let MKEY = null;
+async function mediaKey() {
+  if (MKEY) return MKEY;
+  if (!S.mk) { S.mk = b64(crypto.getRandomValues(new Uint8Array(32))); save(false); }
+  MKEY = await crypto.subtle.importKey("raw", unb64(S.mk), "AES-GCM", false, ["encrypt", "decrypt"]);
+  return MKEY;
+}
+const fmtSize = n => n >= 1e9 ? (n / 1e9).toFixed(2).replace(".", ",") + " Go" : n >= 1e6 ? Math.round(n / 1e6) + " Mo" : Math.max(1, Math.round(n / 1e3)) + " ko";
+// Range un fichier (Blob) dans le coffre ; renvoie son id
+async function mediaPut(blob, type, id = uid(), onProgress) {
+  const key = await mediaKey(), n = Math.max(1, Math.ceil(blob.size / CHUNK));
+  for (let i = 0; i < n; i++) {
+    const buf = await blob.slice(i * CHUNK, (i + 1) * CHUNK).arrayBuffer();
+    const iv = crypto.getRandomValues(new Uint8Array(12)), ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, buf));
+    const rec = new Uint8Array(12 + ct.length); rec.set(iv); rec.set(ct, 12);
+    await MDB.put(`${id}#${i}`, rec.buffer);
+    onProgress?.((i + 1) / n);
+  }
+  await MDB.put(id, { type, mime: blob.type || (type === "vid" ? "video/mp4" : "image/jpeg"), size: blob.size, n, date: today() });
+  return id;
+}
+async function mediaBlob(id) {
+  const meta = await MDB.get(id); if (!meta) return null;
+  const key = await mediaKey(), parts = [];
+  for (let i = 0; i < meta.n; i++) {
+    const rec = new Uint8Array(await MDB.get(`${id}#${i}`));
+    parts.push(await crypto.subtle.decrypt({ name: "AES-GCM", iv: rec.slice(0, 12) }, key, rec.slice(12)));
+  }
+  return new Blob(parts, { type: meta.mime });
+}
+const MURL = new Map();
+async function mediaURL(id) {
+  if (!MURL.has(id)) MURL.set(id, mediaBlob(id).then(b => b ? URL.createObjectURL(b) : ""));
+  return MURL.get(id);
+}
+function mediaForget() { for (const p of MURL.values()) p.then(u => u && URL.revokeObjectURL(u)); MURL.clear(); MKEY = null; }
+const canvasBlob = (c, q = .85) => new Promise(res => c.toBlob(res, "image/jpeg", q));
+// Photo : réduite à 2048 px (qualité souvenir, ~0,5 Mo) puis chiffrée
+async function storeImage(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+    const r = Math.min(1, 2048 / Math.max(img.width, img.height)), c = document.createElement("canvas");
+    c.width = Math.round(img.width * r); c.height = Math.round(img.height * r); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    return "m:" + await mediaPut(await canvasBlob(c), "img");
+  } finally { URL.revokeObjectURL(url); }
+}
+// Vidéo : gardée telle quelle (qualité d'origine) + une vignette
+async function storeVideo(file, onProgress) {
+  const id = uid(), url = URL.createObjectURL(file);
+  try {
+    const v = document.createElement("video"); v.muted = true; v.playsInline = true; v.preload = "auto"; v.src = url;
+    await new Promise(res => { v.onloadeddata = res; v.onerror = res; setTimeout(res, 6000); });
+    try { v.currentTime = Math.min(1, (v.duration || 2) / 2); await new Promise(res => { v.onseeked = res; setTimeout(res, 3000); }); } catch (e) {}
+    if (v.videoWidth) {
+      const r = Math.min(1, 640 / Math.max(v.videoWidth, v.videoHeight)), c = document.createElement("canvas");
+      c.width = Math.round(v.videoWidth * r); c.height = Math.round(v.videoHeight * r); c.getContext("2d").drawImage(v, 0, 0, c.width, c.height);
+      await mediaPut(await canvasBlob(c, .75), "thumb", id + "t");
+    }
+  } catch (e) {} finally { URL.revokeObjectURL(url); }
+  await mediaPut(file, "vid", id, onProgress);
+  return "v:" + id;
+}
+// Ajoute des fichiers choisis (photos et/ou vidéos) et renvoie leurs références
+async function storeFiles(files) {
+  const out = [], big = files.filter(f => f.type.startsWith("video/") && f.size > 1e9);
+  if (big.length && !(await ask(`${big.length > 1 ? "Ces vidéos sont lourdes" : "Cette vidéo est lourde"} (${fmtSize(big.reduce((a, f) => a + f.size, 0))}). Elle sera gardée en qualité d'origine, mais la lecture peut être lente. Astuce : exporte un montage 1080p depuis GoPro Quik. Continuer ?`, "Ajouter"))) files = files.filter(f => !big.includes(f));
+  const bar = progressToast();
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i], lab = `${files.length > 1 ? `${i + 1}/${files.length} · ` : ""}`;
+    try {
+      if (f.type.startsWith("video/")) { bar(lab + "Vidéo chiffrée…", 0); out.push(await storeVideo(f, p => bar(`${lab}Vidéo chiffrée… ${Math.round(p * 100)} %`, p))); }
+      else { bar(lab + "Photo…", i / files.length); out.push(await storeImage(f)); }
+    } catch (err) { toast(/quota/i.test(String(err)) ? "Plus assez d'espace sur l'iPhone" : "Un fichier est illisible"); }
+  }
+  bar(null);
+  return out;
+}
+function progressToast() {
+  let t = null;
+  return (msg, p) => {
+    if (msg === null) { t?.remove(); return; }
+    if (!t) { t = document.createElement("div"); t.className = "toast"; t.innerHTML = `<span></span><div class="prog" style="margin-top:6px;width:200px"><i></i></div>`; document.body.appendChild(t); }
+    t.firstChild.textContent = msg; t.querySelector("i").style.width = Math.round((p || 0) * 100) + "%";
+  };
+}
+// Affichage : toute image « m:… » / « v:… » insérée dans la page est déchiffrée à la volée
+function hydrate(root) {
+  root.querySelectorAll?.('img[src^="m:"], img[src^="v:"]').forEach(async img => {
+    const ref = img.getAttribute("src"); img.dataset.ref = ref; img.removeAttribute("src");
+    const isV = ref.startsWith("v:"); if (isV) img.parentElement?.classList.add("hasvid");
+    const u = await mediaURL(ref.slice(2) + (isV ? "t" : ""));
+    if (u) img.src = u; else img.classList.add("noimg");
+  });
+  root.querySelectorAll?.("video[data-v]").forEach(async v => {
+    const id = v.dataset.v.slice(2); v.removeAttribute("data-v");
+    const note = v.nextElementSibling; if (note) note.textContent = "Déchiffrement de la vidéo…";
+    const u = await mediaURL(id); if (u) { v.src = u; if (note) note.textContent = ""; } else if (note) note.textContent = "Vidéo introuvable";
+  });
+}
+new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => n.nodeType === 1 && hydrate(n.parentElement || n)))).observe(document.documentElement, { childList: true, subtree: true });
+const mediaView = ref => ref.startsWith("v:")
+  ? `<video data-v="${ref}" controls playsinline style="width:100%;border-radius:14px;margin-top:12px;display:block;background:#000;max-height:70vh"></video><div class="faint" style="margin-top:6px"></div>`
+  : `<img src="${ref}" alt="" style="width:100%;border-radius:14px;margin-top:12px;display:block">`;
+// Une vidéo touchée hors galerie s'ouvre en grand
+document.addEventListener("click", e => {
+  const img = e.target.closest?.('img[data-ref^="v:"]'); if (!img || e.target.closest("[data-act]") || e.target.closest(".sheet video")) return;
+  openSheet(`<div class="row between"><h2 style="margin:0">Vidéo</h2><button class="x" data-act="closeSheet">×</button></div>${mediaView(img.dataset.ref)}`);
+});
+// Range dans le coffre les anciennes photos stockées dans les données, puis supprime les fichiers orphelins
+async function mediaMaintenance() {
+  if (!DB.db || !hasCrypto) return;
+  let moved = 0;
+  const walk = async o => { for (const k of Object.keys(o)) { const v = o[k];
+    if (typeof v === "string" && v.startsWith("data:image/")) { try { o[k] = "m:" + await mediaPut(await (await fetch(v)).blob(), "img"); moved++; } catch (e) {} }
+    else if (v && typeof v === "object") await walk(v); } };
+  await walk(S);
+  if (moved) save(false);
+  const used = new Set((JSON.stringify(S).match(/"[mv]:[a-z0-9]+"/g) || []).map(s => s.slice(3, -1)));
+  const dead = (await MDB.keys()).filter(k => { const id = String(k).split("#")[0].replace(/t$/, ""); return !used.has(id) && !used.has(String(k).split("#")[0]); });
+  if (dead.length) await MDB.del(dead);
+}
+async function mediaStats() {
+  const st = { img: [0, 0], vid: [0, 0] };
+  for (const k of await MDB.keys()) { if (String(k).includes("#")) continue; const m = await MDB.get(k); if (m && st[m.type]) { st[m.type][0]++; st[m.type][1] += m.size; } }
+  return st;
+}
 
 function defaults() {
   return {
@@ -615,6 +761,7 @@ function render() {
   $("#main").innerHTML = V.cat ? (V.disc ? viewDisc() : viewCat()) : ({ home: viewHome, agenda: viewAgenda, stats: viewStats, profil: viewProfil })[V.tab]();
   renderTabs();
   window.scrollTo(0, y);
+  if (V.tab === "profil" && !V.cat) fillStorage();
 }
 
 /* =========================================================
@@ -700,6 +847,7 @@ function viewHome() {
     <button class="btn ghost sm" data-act="healthImport">${ico("heart")} Importer Santé</button>
   </div></div>
 
+  ${backupBanner()}
   ${detectedBlock()}
   ${todoBlock(t, "To do du jour")}
 
@@ -954,7 +1102,7 @@ function itemForm(it) {
         ${c.id === "sport" ? `<label class="chip" style="margin:0"><input type="checkbox" name="gpx" style="width:auto;margin:0" ${discGpx(it) ? "checked" : ""}> Itinéraire GPX</label>` : ""}</div>
         <div class="faint" style="margin-top:6px">La durée, le lieu, le ressenti, les notes et les photos sont toujours disponibles.</div>` : ""}` : ""}
     ${(k === "activite" || k === "discipline") && c.id !== "mecatro" ? f("Durée habituelle d'une séance (min)", "duration", "number", 'min="0"') : ""}
-    ${k === "discipline" && c.id === "mecatro" ? `<label>Photos du projet (croquis, plans, montage…)</label><label class="btn ghost sm filebtn">${ico("camera")} Ajouter des photos<input type="file" accept="image/*" multiple data-ch="seancePhotos" hidden></label><div class="thumbs" id="sphotos">${thumbsHtml()}</div>
+    ${k === "discipline" && c.id === "mecatro" ? `<label>Photos du projet (croquis, plans, montage…)</label><label class="btn ghost sm filebtn">${ico("camera")} Photos / vidéos<input type="file" accept="image/*,video/*" multiple data-ch="seancePhotos" hidden></label><div class="thumbs" id="sphotos">${thumbsHtml()}</div>
       <div class="faint" style="margin-top:6px">Le temps passé se calcule tout seul à partir des sessions cochées dans ton agenda.</div>` : ""}
     ${k === "objectif" ? `<label>Progression : <b id="pv">${Number(it.progress) || 0}%</b></label><input name="progress" type="range" min="0" max="100" step="5" value="${Number(it.progress) || 0}" oninput="pv.textContent=this.value+'%'">` + f("Échéance", "date", "date") : ""}
     ${k === "cadeau" ? f("Pour qui ?", "person") + f("Prix estimé (€)", "price", "number", 'min="0" step="0.01"') + f("Lien ou boutique", "link") : ""}
@@ -1133,7 +1281,7 @@ function seanceForm(e) {
       ${(goal.photos || []).length ? `<div class="faint" style="margin-top:6px">Tes inspirations :</div><div class="thumbs">${goal.photos.map(src => `<img src="${src}" alt="">`).join("")}</div>` : ""}</div>` : ""}
     <label>Notes</label><textarea name="note" placeholder="Conditions, sensations, ce que j'ai appris…">${esc(e.note || "")}</textarea>
     <label>Photos</label>
-    <label class="btn ghost sm filebtn">${ico("camera")} Ajouter des photos<input type="file" accept="image/*" multiple data-ch="seancePhotos" hidden></label>
+    <label class="btn ghost sm filebtn">${ico("camera")} Photos / vidéos<input type="file" accept="image/*,video/*" multiple data-ch="seancePhotos" hidden></label>
     <div class="thumbs" id="sphotos">${thumbsHtml()}</div>
     <div class="row" style="margin-top:16px">${e.id ? `<button type="button" class="btn danger" data-act="delSeance" data-id="${e.id}">Supprimer</button>` : ""}<span class="grow"></span><button class="btn">Enregistrer</button></div>
   </form>`;
@@ -1194,7 +1342,7 @@ function lifeForm(p) {
     <label>Pourquoi ce projet, à quoi il ressemble</label><textarea name="desc">${esc(p.desc || "")}</textarea>
     <label>Avancement : <b id="pv">${Number(p.progress) || 0}%</b></label><input name="progress" type="range" min="0" max="100" step="5" value="${Number(p.progress) || 0}" oninput="pv.textContent=this.value+'%'">
     <label>Photos d'inspiration</label>
-    <label class="btn ghost sm filebtn">${ico("camera")} Ajouter des photos<input type="file" accept="image/*" multiple data-ch="seancePhotos" hidden></label>
+    <label class="btn ghost sm filebtn">${ico("camera")} Photos / vidéos<input type="file" accept="image/*,video/*" multiple data-ch="seancePhotos" hidden></label>
     <div class="thumbs" id="sphotos">${thumbsHtml()}</div>
     <div class="row" style="margin-top:16px">${p.id ? `<button type="button" class="btn danger" data-act="delLife" data-id="${p.id}">Supprimer</button>` : ""}<span class="grow"></span><button class="btn">Enregistrer</button></div></form>`;
 }
@@ -1250,7 +1398,7 @@ function mealForm(m) {
     <label>Ce que j'ai mangé</label><textarea name="desc" placeholder="Ex. salade de lentilles, pain complet, une pomme">${esc(m.desc || "")}</textarea>
     <label>Comment je me sens après</label>
     <div class="moods">${MOODS.map(i => `<label><input type="radio" name="mood" value="${i + 1}" ${m.mood === i + 1 ? "checked" : ""}>${face(i)}</label>`).join("")}</div>
-    <label>Photo</label><label class="btn ghost sm filebtn">${ico("camera")} Ajouter une photo<input type="file" accept="image/*" multiple data-ch="seancePhotos" hidden></label>
+    <label>Photo</label><label class="btn ghost sm filebtn">${ico("camera")} Ajouter une photo<input type="file" accept="image/*,video/*" multiple data-ch="seancePhotos" hidden></label>
     <div class="thumbs" id="sphotos">${thumbsHtml()}</div>
     <div class="row" style="margin-top:16px">${m.id ? `<button type="button" class="btn danger" data-act="delMeal" data-id="${m.id}">Supprimer</button>` : ""}<span class="grow"></span><button class="btn">Enregistrer</button></div></form>`;
 }
@@ -1289,7 +1437,7 @@ function mediaForm(m) {
       <div><label>Ma note</label><select name="rating"><option value="">—</option>${[1, 2, 3, 4, 5].map(n => `<option value="${n}" ${m.rating == n ? "selected" : ""}>${stars(n)}</option>`).join("")}</select></div>
       <div><label>Terminé le</label><input name="date" type="date" value="${m.date || ""}"></div></div>
     <label>Résumé & ce que j'en retiens</label><textarea name="summary" style="min-height:120px">${esc(m.summary || "")}</textarea>
-    <label>Photos (couverture, passages…)</label><label class="btn ghost sm filebtn">${ico("camera")} Ajouter des photos<input type="file" accept="image/*" multiple data-ch="seancePhotos" hidden></label>
+    <label>Photos (couverture, passages…)</label><label class="btn ghost sm filebtn">${ico("camera")} Photos / vidéos<input type="file" accept="image/*,video/*" multiple data-ch="seancePhotos" hidden></label>
     <div class="thumbs" id="sphotos">${thumbsHtml()}</div>
     <div class="row" style="margin-top:16px">${m.id ? `<button type="button" class="btn danger" data-act="delMedia" data-id="${m.id}">Supprimer</button>` : ""}<span class="grow"></span><button class="btn">Enregistrer</button></div></form>`;
 }
@@ -1484,7 +1632,7 @@ function entForm(kind, o) {
     ${kind === "moment" && o.done ? `<label>Vécu le</label><input name="doneDate" type="date" value="${o.doneDate || ""}"><label>Où</label><input name="donePlace" value="${esc(o.donePlace || "")}"><label>Mon récit</label><textarea name="story">${esc(o.story || "")}</textarea>` : ""}
     ${C.links ? `<label>Liens (un par ligne)</label><textarea name="links" style="min-height:60px" placeholder="https://…">${esc((o.links || []).join("\n"))}</textarea>` : ""}
     <label>${o.done && kind === "moment" ? "Photos" : C.photos}</label>
-    <label class="btn ghost sm filebtn">${ico("camera")} Ajouter des photos<input type="file" accept="image/*" multiple data-ch="seancePhotos" hidden></label>
+    <label class="btn ghost sm filebtn">${ico("camera")} Photos / vidéos<input type="file" accept="image/*,video/*" multiple data-ch="seancePhotos" hidden></label>
     <div class="thumbs" id="sphotos">${thumbsHtml()}</div>
     <div class="row" style="margin-top:16px">${o.id ? `<button type="button" class="btn danger" data-act="delEnt" data-kind="${kind}" data-id="${o.id}">Supprimer</button>` : ""}<span class="grow"></span><button class="btn">Enregistrer</button></div></form>`;
 }
@@ -1561,10 +1709,15 @@ function viewProfil() {
   <div class="card"><h2>Apple Santé & Suunto</h2>
     <p class="sub" style="margin-top:0">Ton raccourci iPhone copie tes pas, ton sommeil et ton exercice du jour. Colle-les ici : les données restent sur ton appareil.</p>
     <button class="btn ghost" data-act="healthImport">${ico("heart")} Importer depuis Apple Santé</button></div>
+  <div class="card"><h2>Photos & vidéos</h2>
+    <p class="sub" style="margin-top:0">Rangées dans un coffre chiffré sur ton iPhone. Les vidéos gardent leur qualité d'origine.</p>
+    <div id="stoInfo" class="faint">Calcul de l'espace…</div></div>
   <div class="card"><h2>Sauvegarde</h2>
-    <p class="sub" style="margin-top:0">Exporte un fichier de sauvegarde pour ne rien perdre, ou pour transférer tes données entre ton iPhone et ton PC.</p>
-    <div class="row wrap"><button class="btn ghost" data-act="exportData">${ico("down")} Exporter</button>
-      <label class="btn ghost" style="margin:0;color:var(--text);font-size:15px">${ico("up")} Importer<input type="file" accept="application/json,.json" data-ch="importData" hidden></label></div>
+    <p class="sub" style="margin-top:0">${KEY ? "Le fichier est <b>chiffré avec ton code</b> : sans lui, personne ne peut le lire." : "Crée un code pour pouvoir faire une sauvegarde chiffrée."} Range-le dans Fichiers (iCloud Drive) ou sur ton PC. <b>Si tu supprimes l'icône MarieMe de l'écran d'accueil, tout ce qu'elle contient est effacé</b> : seule ta sauvegarde te permettra de tout retrouver.</p>
+    <div class="faint" style="margin-bottom:10px">Dernière sauvegarde : ${S.settings.lastBackup ? `${fmtShort(S.settings.lastBackup)} ${S.settings.lastBackup.slice(0, 4)}` : "jamais"}</div>
+    <div class="row wrap"><button class="btn" data-act="exportData">${ico("down")} Sauvegarder</button><button class="btn ghost" data-act="exportFull">${ico("down")} Avec les vidéos</button>
+      <label class="btn ghost" style="margin:0;color:var(--text);font-size:15px">${ico("up")} Restaurer<input type="file" data-ch="importData" hidden></label></div>
+    <div class="faint" style="margin-top:8px">« Sauvegarder » : données et photos, chaque semaine. « Avec les vidéos » : de temps en temps, le fichier est lourd.</div>
     <hr><button class="btn danger" data-act="wipe">Tout effacer</button></div>
   <div class="faint" style="text-align:center;margin:20px 0">MarieMe · prototype v0.1</div>`;
 }
@@ -1672,6 +1825,93 @@ async function resizeImage(file, max = 1280) {
   } finally { URL.revokeObjectURL(url); }
 }
 
+
+/* ---- Sauvegarde chiffrée (.marieme) : données + photos (+ vidéos) ---- */
+let PINRES = null;
+function askPin(title) {
+  return new Promise(res => { PINRES = res; openSheet(`<form data-form="askPin"><h2>${title}</h2><p class="sub">Le code utilisé quand la sauvegarde a été faite.</p>
+    <input name="p" type="password" inputmode="numeric" autocomplete="off" required autofocus>
+    <div class="row" style="margin-top:12px"><span class="grow"></span><button type="button" class="btn ghost" data-act="closeSheet">Annuler</button><button class="btn">Valider</button></div></form>`); });
+}
+async function shareFile(file) {
+  if (navigator.canShare?.({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: file.name }); return true; }
+    catch (err) { if (err.name === "AbortError") return false; }
+  }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 60000); return true;
+}
+async function exportBackup(withVideos) {
+  if (!KEY) { toast("Crée d'abord un code : la sauvegarde sera chiffrée avec."); return pinSheet(); }
+  clearTimeout(saveT); await persist();
+  const bar = progressToast(); bar("Préparation de la sauvegarde…", 0);
+  try {
+    const rec = await DB.get("state"), media = [], parts = [];
+    const keys = (await MDB.keys()).filter(k => !String(k).includes("#"));
+    for (let j = 0; j < keys.length; j++) {
+      const k = keys[j], m = await MDB.get(k); if (!m || (!withVideos && m.type === "vid")) continue;
+      const sizes = [];
+      for (let i = 0; i < m.n; i++) { const buf = await MDB.get(`${k}#${i}`); parts.push(buf); sizes.push(buf.byteLength); }
+      media.push({ id: k, meta: m, sizes }); bar(`Préparation… ${j + 1}/${keys.length}`, (j + 1) / keys.length);
+    }
+    const head = TE.encode(JSON.stringify({ app: "marieme", v: 2, date: today(), withVideos, state: rec, media }));
+    const len = new Uint8Array(4); new DataView(len.buffer).setUint32(0, head.length);
+    const file = new File([TE.encode("MARIEME2"), len, head, ...parts], `marieme-${today()}${withVideos ? "-complete" : ""}.marieme`, { type: "application/octet-stream" });
+    bar(null);
+    if (await shareFile(file)) { S.settings.lastBackup = today(); S.settings.backupSnooze = ""; save(); toast(`Sauvegarde chiffrée prête (${fmtSize(file.size)}) ✓`); }
+  } catch (err) { bar(null); toast("Sauvegarde impossible : fichier trop lourd ? Essaie sans les vidéos."); }
+}
+async function importBackup(f) {
+  const magic = TD.decode(await f.slice(0, 8).arrayBuffer());
+  if (magic !== "MARIEME2") {   // ancienne sauvegarde (.json non chiffrée)
+    try {
+      const data = JSON.parse(await f.text()); if (!data || typeof data !== "object" || !data.profile) throw new Error();
+      if (!(await ask("Remplacer les données actuelles par cette sauvegarde ?", "Importer"))) return;
+      S = normalize(data); carryOver(); await persist(); render(); setTimeout(() => mediaMaintenance(), 500); toast("Sauvegarde importée ✓");
+    } catch (err) { toast("Fichier de sauvegarde invalide"); }
+    return;
+  }
+  const len = new DataView(await f.slice(8, 12).arrayBuffer()).getUint32(0);
+  const H = JSON.parse(TD.decode(await f.slice(12, 12 + len).arrayBuffer()));
+  let data, key = null, salt = null;
+  if (H.state.enc) {
+    const pin = await askPin("Code de la sauvegarde"); closeSheet(); if (!pin) return;
+    try { salt = unb64(H.state.salt); key = await deriveKey(pin, salt); data = JSON.parse(TD.decode(await crypto.subtle.decrypt({ name: "AES-GCM", iv: unb64(H.state.iv) }, key, unb64(H.state.ct)))); }
+    catch (err) { toast("Code incorrect"); return; }
+  } else data = JSON.parse(H.state.data);
+  const nV = H.media.filter(m => m.meta.type === "vid").length, nP = H.media.filter(m => m.meta.type === "img").length;
+  if (!(await ask(`Restaurer la sauvegarde du ${fmtShort(H.date)} ${H.date.slice(0, 4)} (${nP} photo${nP > 1 ? "s" : ""}${H.withVideos ? `, ${nV} vidéo${nV > 1 ? "s" : ""}` : ", sans les vidéos"}) ? Elle remplace les données actuelles.`, "Restaurer"))) return;
+  const bar = progressToast(); bar("Restauration…", 0);
+  try {
+    mediaForget();
+    if (H.withVideos) await MDB.clear();
+    else { const old = []; for (const k of await MDB.keys()) { if (String(k).includes("#")) continue; const m = await MDB.get(k); if (m?.type !== "vid") { old.push(k); for (let i = 0; i < (m?.n || 0); i++) old.push(`${k}#${i}`); } } await MDB.del(old); }
+    let off = 12 + len;
+    for (let j = 0; j < H.media.length; j++) {
+      const m = H.media[j];
+      for (let i = 0; i < m.sizes.length; i++) { await MDB.put(`${m.id}#${i}`, await f.slice(off, off + m.sizes[i]).arrayBuffer()); off += m.sizes[i]; }
+      await MDB.put(m.id, m.meta); bar(`Restauration… ${j + 1}/${H.media.length}`, (j + 1) / H.media.length);
+    }
+    if (!KEY && key) { KEY = key; SALT = salt; }
+    S = normalize(data); S.settings.lastBackup = H.date; carryOver(); await persist(); bar(null); render(); toast("Sauvegarde restaurée ✓");
+  } catch (err) { bar(null); toast(/quota/i.test(String(err)) ? "Plus assez d'espace sur l'appareil" : "Restauration interrompue"); }
+}
+function backupBanner() {
+  if (!KEY) return "";
+  const lb = S.settings.lastBackup, n = lb ? Math.round((parse(today()) - parse(lb)) / 864e5) : null;
+  if ((n !== null && n < 7) || (S.settings.backupSnooze && S.settings.backupSnooze > today())) return "";
+  return `<div class="card"><div class="row" style="gap:12px"><div class="ibox">${ico("down")}</div><div class="grow"><b>${n === null ? "Fais ta première sauvegarde" : `Dernière sauvegarde il y a ${n} jours`}</b><div class="faint">Un fichier chiffré à ranger dans Fichiers ou sur ton PC.</div></div></div>
+    <div class="row" style="margin-top:10px;justify-content:flex-end;gap:8px"><button class="btn ghost sm" data-act="snoozeBackup">Plus tard</button><button class="btn sm" data-act="backupNow">Sauvegarder</button></div></div>`;
+}
+async function fillStorage() {
+  const el = $("#stoInfo"); if (!el) return;
+  const st = await mediaStats(), est = await navigator.storage?.estimate?.().catch(() => null), pers = await navigator.storage?.persisted?.().catch(() => null);
+  el.innerHTML = `<div class="tiles" style="margin-top:4px"><div class="tile"><div class="k">Photos</div><div class="val">${st.img[0]} <small>${fmtSize(st.img[1])}</small></div></div>
+    <div class="tile"><div class="k">Vidéos</div><div class="val">${st.vid[0]} <small>${fmtSize(st.vid[1])}</small></div></div></div>
+    ${est ? `<div class="prog" style="margin-top:12px"><i style="width:${Math.max(1, Math.round(est.usage / est.quota * 100))}%"></i></div><div class="faint" style="margin-top:4px">${fmtSize(est.usage)} utilisés · ${fmtSize(Math.max(0, est.quota - est.usage))} encore disponibles pour MarieMe</div>` : ""}
+    <div class="faint" style="margin-top:4px">${pers ? "✓ Protégé contre l'effacement automatique" : "Protection contre l'effacement : ouvre MarieMe depuis son icône sur l'écran d'accueil"}</div>`;
+}
+
 /* =========================================================
    12. ACTIONS (clics)
    ========================================================= */
@@ -1763,11 +2003,11 @@ const ACT = {
   galYear: el => { V.galYear = el.dataset.k; render(); },
   viewPhoto: el => {
     const ev = S.events.find(x => x.id === el.dataset.id);
-    if (!ev) { const it = findItem(V.disc)[1]; return openSheet(`<div class="row between"><h2 style="margin:0">${esc(it.title)}</h2><button class="x" data-act="closeSheet">×</button></div><img src="${it.photos[Number(el.dataset.i)]}" alt="" style="width:100%;border-radius:14px;margin-top:12px;display:block">`); }
+    if (!ev) { const it = findItem(V.disc)[1]; return openSheet(`<div class="row between"><h2 style="margin:0">${esc(it.title)}</h2><button class="x" data-act="closeSheet">×</button></div>${mediaView(it.photos[Number(el.dataset.i)])}`); }
     const src = ev.photos[Number(el.dataset.i)];
     openSheet(`<div class="row between"><h2 style="margin:0;text-transform:capitalize">${fmtLong(ev.date)}</h2><button class="x" data-act="closeSheet">×</button></div>
       ${ev.place ? `<div class="faint row" style="gap:4px;margin-top:4px">${ico("pin")} ${esc(ev.place)}</div>` : ""}
-      <img src="${src}" alt="" style="width:100%;border-radius:14px;margin-top:12px;display:block">
+      ${mediaView(src)}
       <div class="stat-row" style="margin-top:10px">${seanceStats(ev)}</div>
       <div class="row" style="margin-top:14px"><span class="grow"></span><button class="btn ghost" data-act="editSeance" data-id="${ev.id}">Voir la séance</button></div>`);
   },
@@ -1800,18 +2040,11 @@ const ACT = {
   setPin: () => pinSheet(),
   removePin: async () => { if (!(await ask("Retirer le code ? Tes données ne seront plus chiffrées.", "Retirer"))) return; KEY = null; SALT = null; await persist(); render(); toast("Code retiré"); },
   lockNow: () => lockNow(),
-  exportData: async () => {
-    const filename = `marieme-sauvegarde-${today()}.json`;
-    if (window.claude && claude.use) {   // ouverte dans Claude : on passe par la fonction de téléchargement de Claude
-      try { const dl = await claude.use("downloads"); if (dl) { await dl.save({ filename, data: JSON.stringify(S) }); toast("Sauvegarde exportée ✓"); return; } }
-      catch (err) { toast("Export annulé"); return; }
-    }
-    const blob = new Blob([JSON.stringify(S)], { type: "application/json" }), a = document.createElement("a");
-    a.href = URL.createObjectURL(blob); a.download = filename; document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-    toast("Sauvegarde exportée ✓");
-  },
-  wipe: async () => { if (!(await ask("Effacer toutes les données de cet appareil ? C'est définitif.", "Tout effacer"))) return; KEY = null; SALT = null; S = normalize(null); await persist(); V.tab = "home"; render(); },
+  exportData: () => exportBackup(false),
+  exportFull: () => exportBackup(true),
+  backupNow: () => exportBackup(false),
+  snoozeBackup: () => { S.settings.backupSnooze = addDays(today(), 3); save(); },
+  wipe: async () => { if (!(await ask("Effacer toutes les données de cet appareil ? C'est définitif.", "Tout effacer"))) return; KEY = null; SALT = null; mediaForget(); await MDB.clear(); S = normalize(null); await persist(); V.tab = "home"; render(); },
 };
 document.addEventListener("click", e => {
   const el = e.target.closest("[data-act]"); if (!el || !ACT[el.dataset.act]) return;
@@ -1976,7 +2209,7 @@ document.addEventListener("change", async e => {
   else if (k === "itemKind") { const form = el.closest("form"); collectItem(form); draftItem.kind = el.value; $("#sheet .sheet").innerHTML = itemForm(draftItem); }
   else if (k === "photo") {
     const f = el.files[0]; if (!f) return;
-    try { draftItem.photo = await resizeImage(f); $("#phprev").innerHTML = `<img src="${draftItem.photo}" style="max-width:140px;border-radius:12px">`; }
+    try { draftItem.photo = await storeImage(f); $("#phprev").innerHTML = `<img src="${draftItem.photo}" style="max-width:140px;border-radius:12px">`; }
     catch (err) { toast("Image illisible (format HEIC ? essaie en JPEG)"); }
   }
   else if (k === "discTitle") {
@@ -1987,9 +2220,8 @@ document.addEventListener("change", async e => {
   else if (k === "ficheFile") { const f = el.files[0]; if (f) el.closest("form").data.value = await f.text(); }
   else if (k === "seancePhotos") {
     const files = [...el.files]; if (!files.length) return;
-    toast("Ajout des photos…");
-    for (const f of files) { try { draftSeance.photos.push(await resizeImage(f)); } catch (err) { toast("Une image est illisible (HEIC ? essaie en JPEG)"); } }
-    $("#sphotos").innerHTML = thumbsHtml(); el.value = "";
+    el.value = ""; draftSeance.photos.push(...await storeFiles(files));
+    if ($("#sphotos")) $("#sphotos").innerHTML = thumbsHtml();
   }
   else if (k === "gpx") {
     const f = el.files[0]; if (!f) return;
@@ -2012,15 +2244,7 @@ document.addEventListener("change", async e => {
     form.libId.value = it ? it.id : ""; $("#addLibRow").hidden = !!it;
     if (it) { form.title.value = it.title; form.duration.value = it.duration || ""; form.cat.value = cat; form.kind.value = "activite"; }
   }
-  else if (k === "importData") {
-    const f = el.files[0]; if (!f) return;
-    try {
-      const data = JSON.parse(await f.text());
-      if (!data || typeof data !== "object" || !data.profile) throw new Error();
-      if (!(await ask("Remplacer les données actuelles par cette sauvegarde ?", "Importer"))) return;
-      S = normalize(data); carryOver(); await persist(); render(); toast("Sauvegarde importée ✓");
-    } catch (err) { toast("Fichier de sauvegarde invalide"); }
-  }
+  else if (k === "importData") { const f = el.files[0]; el.value = ""; if (f) await importBackup(f); }
 });
 function collectItem(form) {
   const fd = new FormData(form);
@@ -2132,6 +2356,7 @@ document.addEventListener("submit", async e => {
     S.events.push(ev); closeSheet();
     if (V.tab !== "agenda" || V.cat) { toast(`Ajouté au ${fmtShort(ev.date)}`); }
     save();
+  } else if (k === "askPin") { const r = PINRES; PINRES = null; r?.(form.p.value);
   } else if (k === "savePin") {
     const a = form.a.value, b = form.b.value;
     if (a.length < 4) return $("#pinErr").textContent = "Au moins 4 caractères.";
@@ -2144,7 +2369,7 @@ document.addEventListener("submit", async e => {
 /* =========================================================
    13. VERROUILLAGE & DÉMARRAGE
    ========================================================= */
-async function lockNow() { clearTimeout(saveT); await persist(); S = null; KEY = null; closeSheet(); boot(); }
+async function lockNow() { clearTimeout(saveT); await persist(); S = null; KEY = null; mediaForget(); closeSheet(); boot(); }
 let hiddenAt = 0;
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) { hiddenAt = Date.now(); if (S) persist(); }
@@ -2169,7 +2394,8 @@ function showLock(rec) {
 }
 function start() {
   try { navigator.storage?.persist?.(); } catch (e) {}   // demande au navigateur de ne pas effacer les données
-  $("#tabs").hidden = false; if (carryOver() | archiveSavoir()) save(false); render(); }
+  $("#tabs").hidden = false; if (carryOver() | archiveSavoir()) save(false); render();
+  setTimeout(() => mediaMaintenance().catch(() => {}), 1500); }
 async function boot() {
   if (!DB.db) await DB.open();
   const rec = await DB.get("state");
