@@ -1831,7 +1831,8 @@ function parseDateAny(v) {
 // Accepte un ou plusieurs jours : chaque « date: … » ouvre un nouveau jour
 function parseHealth(txt) {
   const days = {}, sleepAdd = {}, workouts = []; let cur = null, curHour = null;
-  for (const raw of String(txt).split(/\n|;/)) {
+  for (let raw of String(txt).split(/\n|;/)) {
+    raw = raw.replace(/^[^:=\d]*[:=]\s*(?=date\s*[:=])/i, ""); // « Pas : date: … » → étiquette ignorée
     const m = raw.match(/^\s*([^:=]+?)\s*[:=]\s*(.+)$/); if (!m) continue;
     const k = m[1].toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim(), v = m[2].trim();
     if (k.startsWith("date")) { cur = parseDateAny(v) || cur; const hm = v.match(/(\d{1,2})[:h](\d{2})/); curHour = hm ? Number(hm[1]) : null; continue; }
