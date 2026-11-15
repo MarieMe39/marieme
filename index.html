@@ -842,6 +842,7 @@ function viewStats() {
     <div class="tile"><div class="k">Pas / jour</div><div class="val">${nf(avg(nz(steps)))}</div></div>
     <div class="tile"><div class="k">Sommeil moyen</div><div class="val">${f1(avg(nz(sleep)))} <small>h</small></div></div>
     <div class="tile"><div class="k">Eau / jour</div><div class="val">${f1(avg(nz(water)) / 1000)} <small>L</small></div></div>
+    ${(() => { const a = dates.map(d => Number(getDay(d).activeKcal) || 0).filter(v => v > 0); return a.length ? `<div class="tile"><div class="k">Énergie active / jour</div><div class="val">${nf(avg(a))} <small>kcal</small></div></div>` : ""; })()}
     <div class="tile"><div class="k">Entraînement total</div><div class="val">${nf(train.reduce((a, b) => a + b, 0))} <small>min</small></div></div>
     <div class="tile"><div class="k">Tâches accomplies</div><div class="val">${tasksDone}</div></div>
     <div class="tile"><div class="k">Jours avec ressenti</div><div class="val">${moodDays}<small> / ${n}</small></div></div>
@@ -1757,6 +1758,8 @@ document.addEventListener("click", e => {
 const num = v => { const m = String(v).replace(/[\s\u00a0\u202f]/g, "").replace(",", ".").match(/-?\d+(\.\d+)?/); return m ? Number(m[0]) : NaN; };
 function toMinutes(v, k) {
   const s = String(v).toLowerCase().replace(",", ".");
+  const hms = s.match(/^\s*(\d+):(\d{2})(?::(\d{2}))?\s*$/);
+  if (hms) return Number(hms[1]) * 60 + Number(hms[2]) + (hms[3] ? Number(hms[3]) / 60 : 0);
   const h = s.match(/(\d+(?:\.\d+)?)\s*h/), mn = s.match(/(\d+(?:\.\d+)?)\s*min/), sec = s.match(/(\d+(?:\.\d+)?)\s*s(ec)?\b/);
   if (h || mn) return (h ? Number(h[1]) * 60 : 0) + (mn ? Number(mn[1]) : 0);
   if (sec) return Number(sec[1]) / 60;
@@ -1774,22 +1777,54 @@ function parseDateAny(v) {
 }
 // Accepte un ou plusieurs jours : chaque « date: … » ouvre un nouveau jour
 function parseHealth(txt) {
-  const days = {}; let cur = null;
+  const days = {}, sleepAdd = {}, workouts = []; let cur = null, curHour = null;
   for (const raw of String(txt).split(/\n|;/)) {
     const m = raw.match(/^\s*([^:=]+?)\s*[:=]\s*(.+)$/); if (!m) continue;
     const k = m[1].toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim(), v = m[2].trim();
-    if (k.startsWith("date")) { cur = parseDateAny(v) || cur; continue; }
+    if (k.startsWith("date")) { cur = parseDateAny(v) || cur; const hm = v.match(/(\d{1,2})[:h](\d{2})/); curHour = hm ? Number(hm[1]) : null; continue; }
+    // morceaux de sommeil : additionnés par nuit (une fin après 18 h compte pour la nuit suivante)
+    if (/sommeil|sleep/.test(k) && /\+|segment|morceau/.test(k)) {
+      const n = toMinutes(v, "min"); if (isNaN(n) || !cur) continue;
+      const night = curHour !== null && curHour >= 18 ? addDays(cur, 1) : cur;
+      sleepAdd[night] = (sleepAdd[night] || 0) + n; continue;
+    }
     const out = days[cur || today()] = days[cur || today()] || {};
+    // séance : « seance: Type | durée | distance | heure »
+    if (/^(seance|entrainement|workout)/.test(k)) {
+      const [type, dur, dist, hr] = v.split("|").map(x => (x || "").trim());
+      const hm = (hr || "").match(/(\d{1,2})[:h](\d{2})/) || (curHour !== null ? null : null);
+      workouts.push({ date: cur || today(), type, duration: dur ? Math.round(toMinutes(dur, "")) || 0 : 0, distance: dist ? (num(dist) || 0) : 0, time: hm ? `${pad(+hm[1])}:${hm[2]}` : "" });
+      continue;
+    }
+    if (/energ|calor|kcal/.test(k)) { const n = num(v), o = days[cur || today()] = days[cur || today()] || {}; if (!isNaN(n)) o[/repos|basal/.test(k) ? "restKcal" : "activeKcal"] = Math.round(n); continue; }
     if (/pas|step/.test(k)) { const n = num(v); if (!isNaN(n)) out.steps = Math.round(n); }
     else if (/sommeil|sleep/.test(k)) { const n = toMinutes(v, k); if (!isNaN(n)) out.sleep = Math.round(n / 60 * 100) / 100; }
     else if (/exerc|entrain|workout|sport/.test(k)) { const n = toMinutes(v, k); if (!isNaN(n)) out.exApple = Math.round(n); }
     else if (/eau|water/.test(k)) { let n = num(v); if (!isNaN(n)) out.water = Math.round(/\bl\b|litre/i.test(v) || n < 10 ? n * 1000 : n); }
     else if (/distance/.test(k)) { let n = num(v); if (!isNaN(n)) out.walkKm = Math.round((/\bm\b/.test(v) && n > 100 ? n / 1000 : n) * 100) / 100; }
   }
+  for (const [d, mn] of Object.entries(sleepAdd)) { days[d] = days[d] || {}; days[d].sleep = Math.round(mn / 60 * 100) / 100; }
   for (const d of Object.keys(days)) if (!Object.keys(days[d]).length) delete days[d];
-  return days;
+  return { days, workouts };
 }
-const healthLine = d => [d.steps != null ? nf(d.steps) + " pas" : "", d.sleep != null ? f1(d.sleep) + " h de sommeil" : "", d.exApple != null ? d.exApple + " min d'exercice" : "", d.walkKm != null ? f1(d.walkKm) + " km" : "", d.water != null ? (d.water / 1000).toFixed(2).replace(".", ",") + " L d'eau" : ""].filter(Boolean).join(" · ");
+// Types d'entraînement Apple Santé → tes sports
+const WMAP = [[/rando|hiking/i, "Randonnée"], [/course|running|run\b/i, "Course à pied"], [/yoga/i, "Yoga"], [/snowboard/i, "Snowboard"], [/ski/i, "Ski"],
+  [/muscu|renfo|fonctionnel|strength|core|haltéro/i, "Renforcement musculaire"], [/pole/i, "Pole dance"], [/plong|dive/i, "Plongée sous-marine"], [/moto/i, "Moto"], [/parachut|skydiv/i, "Parachute"]];
+function importWorkouts(list) {
+  let n = 0; const lib = S.library.sport = S.library.sport || [];
+  for (const w of list) {
+    if (!w.type) continue;
+    const name = (WMAP.find(([re]) => re.test(w.type)) || [])[1];
+    const disc = lib.find(x => x.title.toLowerCase() === (name || w.type).toLowerCase());
+    const extId = `apple:${w.date}:${w.time}:${w.type}`;
+    let ev = S.events.find(e => e.extId === extId);
+    if (!ev) { ev = { id: uid(), extId, kind: "activite", cat: "sport", done: true, note: "", photos: [] }; S.events.push(ev); n++; }
+    Object.assign(ev, { date: w.date, time: w.time, title: disc ? disc.title : w.type, libId: disc ? disc.id : null, duration: w.duration || ev.duration || 0 });
+    if (w.distance && (!disc || discFields(disc).includes("distance"))) ev.distance = Math.round(w.distance * 100) / 100;
+  }
+  return n;
+}
+const healthLine = d => [d.steps != null ? nf(d.steps) + " pas" : "", d.sleep != null ? f1(d.sleep) + " h de sommeil" : "", d.exApple != null ? d.exApple + " min d'exercice" : "", d.walkKm != null ? f1(d.walkKm) + " km" : "", d.water != null ? (d.water / 1000).toFixed(2).replace(".", ",") + " L d'eau" : "", d.activeKcal != null ? nf(d.activeKcal) + " kcal actives" : "", d.restKcal != null ? nf(d.restKcal) + " kcal au repos" : ""].filter(Boolean).join(" · ");
 function healthSheet() {
   return `<form data-form="healthImport">
     <div class="row between"><h2 style="margin:0">Importer depuis Apple Santé</h2><button type="button" class="x" data-act="closeSheet">×</button></div>
@@ -1800,9 +1835,10 @@ function healthSheet() {
 }
 document.addEventListener("input", e => {
   if (e.target.closest?.("[data-form=healthImport]") && e.target.name === "t") {
-    const days = parseHealth(e.target.value), ks = Object.keys(days).sort();
-    $("#hprev").innerHTML = !ks.length ? "" : ks.length === 1 ? `Pour le ${fmtLong(ks[0])} : ${healthLine(days[ks[0]])}`
-      : `<b>${ks.length} jours</b>, du ${fmtShort(ks[0])} ${ks[0].slice(0, 4)} au ${fmtShort(ks.at(-1))} ${ks.at(-1).slice(0, 4)}<br>Dernier jour : ${healthLine(days[ks.at(-1)])}`;
+    const { days, workouts } = parseHealth(e.target.value), ks = Object.keys(days).sort();
+    const wtxt = workouts.length ? `<br>${workouts.length} séance${workouts.length > 1 ? "s" : ""} : ${workouts.slice(0, 4).map(w => `${esc(w.type)}${w.duration ? " " + fmtDur(w.duration) : ""}`).join(", ")}${workouts.length > 4 ? "…" : ""}` : "";
+    $("#hprev").innerHTML = (!ks.length ? "" : ks.length === 1 ? `Pour le ${fmtLong(ks[0])} : ${healthLine(days[ks[0]])}`
+      : `<b>${ks.length} jours</b>, du ${fmtShort(ks[0])} ${ks[0].slice(0, 4)} au ${fmtShort(ks.at(-1))} ${ks.at(-1).slice(0, 4)}<br>Dernier jour : ${healthLine(days[ks.at(-1)])}`) + wtxt;
   }
 });
 
@@ -1961,11 +1997,12 @@ document.addEventListener("submit", async e => {
       closeSheet(); save(); toast(`${n} fiche${n > 1 ? "s" : ""} ajoutée${n > 1 ? "s" : ""}`);
     } catch (err) { $("#impErr").textContent = "Je n'ai pas reconnu de fiche dans ce texte. Vérifie que tout le bloc a été copié."; }
   } else if (k === "healthImport") {
-    const days = parseHealth(form.t.value), ks = Object.keys(days).sort();
-    if (!ks.length) { $("#hprev").textContent = "Je n'ai reconnu aucune donnée. Vérifie que tout le texte du raccourci a été collé."; return; }
+    const { days, workouts } = parseHealth(form.t.value), ks = Object.keys(days).sort();
+    const nW = importWorkouts(workouts);
+    if (!ks.length && !nW) { $("#hprev").textContent = "Je n'ai reconnu aucune donnée. Vérifie que tout le texte du raccourci a été collé."; return; }
     for (const d of ks) setDay(d, days[d]);
     try { navigator.clipboard?.writeText(""); } catch (err) {}
-    closeSheet(); save(); toast(ks.length === 1 ? `Données du ${fmtShort(ks[0])} importées` : `${ks.length} jours importés`);
+    closeSheet(); save(); toast(`${ks.length ? (ks.length === 1 ? `Données du ${fmtShort(ks[0])}` : `${ks.length} jours`) : ""}${ks.length && nW ? " et " : ""}${nW ? `${nW} séance${nW > 1 ? "s" : ""}` : ""} importé${(ks.length > 1 || nW > 1) ? "s" : ""}`);
   } else if (k === "saveEnt") {
     const kind = form.dataset.kind, C = ENT[kind], fd = Object.fromEntries(new FormData(form).entries()), l = C.list();
     let o = l.find(x => x.id === form.dataset.id); const isNew = !o; if (isNew) o = { id: uid(), done: false };
