@@ -534,6 +534,7 @@ function normalize(s) {
 const getDay = d => S.days[d] || {};
 const setDay = (d, patch) => { S.days[d] = { ...getDay(d), ...patch }; };
 const eventsOn = d => S.events.filter(e => e.date === d).sort((a, b) => (a.time || "99").localeCompare(b.time || "99"));
+const totalKcal = d => (Number(getDay(d).activeKcal) || 0) + (Number(getDay(d).restKcal) || 0);
 const trainingOf = d => Math.max(Number(getDay(d).exApple) || 0, (Number(getDay(d).training) || 0) + S.events.filter(e => e.date === d && e.done && e.cat === "sport").reduce((a, e) => a + (Number(e.duration) || 0), 0));
 const todosOn = d => S.todos.filter(x => (!x.done && x.date === d) || (x.done && x.doneDate === d));
 
@@ -842,7 +843,10 @@ function viewStats() {
     <div class="tile"><div class="k">Pas / jour</div><div class="val">${nf(avg(nz(steps)))}</div></div>
     <div class="tile"><div class="k">Sommeil moyen</div><div class="val">${f1(avg(nz(sleep)))} <small>h</small></div></div>
     <div class="tile"><div class="k">Eau / jour</div><div class="val">${f1(avg(nz(water)) / 1000)} <small>L</small></div></div>
-    ${(() => { const a = dates.map(d => Number(getDay(d).activeKcal) || 0).filter(v => v > 0); return a.length ? `<div class="tile"><div class="k">Énergie active / jour</div><div class="val">${nf(avg(a))} <small>kcal</small></div></div>` : ""; })()}
+    ${(() => { const a = dates.map(d => Number(getDay(d).activeKcal) || 0).filter(v => v > 0), r = dates.map(d => Number(getDay(d).restKcal) || 0).filter(v => v > 0), t = dates.map(totalKcal).filter(v => v > 0);
+      return (a.length ? `<div class="tile"><div class="k">Énergie active / jour</div><div class="val">${nf(avg(a))} <small>kcal</small></div></div>` : "")
+        + (r.length ? `<div class="tile"><div class="k">Énergie au repos / jour</div><div class="val">${nf(avg(r))} <small>kcal</small></div></div>` : "")
+        + (t.length ? `<div class="tile"><div class="k">Énergie totale / jour</div><div class="val">${nf(avg(t))} <small>kcal</small></div></div>` : ""); })()}
     <div class="tile"><div class="k">Entraînement total</div><div class="val">${nf(train.reduce((a, b) => a + b, 0))} <small>min</small></div></div>
     <div class="tile"><div class="k">Tâches accomplies</div><div class="val">${tasksDone}</div></div>
     <div class="tile"><div class="k">Jours avec ressenti</div><div class="val">${moodDays}<small> / ${n}</small></div></div>
@@ -854,6 +858,8 @@ function viewStats() {
   ${(() => { const hr = dates.map(d => Number(getDay(d).hrRest) || 0); if (!hr.some(v => v)) return "";
     const hv = dates.map(d => Number(getDay(d).hrv) || 0).filter(Boolean);
     return `<div class="card"><h2>Fréquence cardiaque au repos</h2><div class="faint" style="margin:-6px 0 8px">Moyenne : ${nf(avg(hr.filter(Boolean)))} bpm${hv.length ? ` · variabilité (VFC) moyenne : ${nf(avg(hv))} ms` : ""}</div>${barChart(dates, hr, 0, "var(--orange)", "bpm", nf, Math.max(0, Math.min(...hr.filter(Boolean)) - 8))}</div>`; })()}
+  ${(() => { const t = dates.map(totalKcal); if (!t.some(v => v)) return "";
+    return `<div class="card"><h2>Énergie dépensée</h2><div class="faint" style="margin:-6px 0 8px">Total de la journée = énergie active + énergie au repos</div>${barChart(dates, t, 0, "var(--teal)", "kcal")}</div>`; })()}
   <div class="card"><h2>Entraînement</h2>${barChart(dates, train, p.goalTraining, "var(--teal)", "min")}</div>
 
   <div class="card"><h2>Répartition des activités</h2>
