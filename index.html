@@ -642,6 +642,29 @@ function todoBlock(d, title) {
     <div style="margin-top:6px">${list.length ? list.map(x => todoRow(x)).join("") : `<div class="empty">Rien de prévu. Ajoute une tâche ci-dessous.</div>`}</div>
     <form class="row" data-form="addTodo" data-date="${d}" style="margin-top:10px"><input name="t" placeholder="Nouvelle tâche…" autocomplete="off"><button class="btn">Ajouter</button></form></div>`;
 }
+// Jours récents avec des minutes d'exercice Apple mais aucune séance notée → on demande quel sport
+function detectedDays() {
+  const out = [];
+  for (let i = 0; i < 10; i++) {
+    const d = addDays(today(), -i), o = S.days[d]; if (!o || o.wkSkip) continue;
+    const ex = Number(o.exApple) || 0; if (ex < 15) continue;
+    if (S.events.some(e => e.date === d && e.cat === "sport" && (e.done || d < today()))) continue;
+    out.push(d);
+  }
+  return out;
+}
+function detectedBlock() {
+  const ds = detectedDays(); if (!ds.length) return "";
+  const discs = (S.library.sport || []).filter(x => x.kind === "discipline");
+  const guess = o => { const n = o.skiKm ? "ski" : o.swimKm ? "nat" : o.bikeKm ? "v" : ""; return n ? (discs.find(x => x.title.toLowerCase().startsWith(n)) || {}).id : ""; };
+  return `<div class="card"><div class="row between"><h2 style="margin:0">Séance${ds.length > 1 ? "s" : ""} détectée${ds.length > 1 ? "s" : ""}</h2><span class="faint">via Apple Santé</span></div>
+    ${ds.map(d => { const o = S.days[d], km = o.skiKm || o.swimKm || o.bikeKm || o.walkKm, g = guess(o);
+      return `<form class="row wrap" data-form="assignWk" data-d="${d}" style="margin-top:10px;gap:8px">
+        <div class="grow" style="min-width:150px"><b style="text-transform:capitalize">${fmtShort(d)}</b> · ${fmtDur(Number(o.exApple))}${km ? ` · ${f1(km)} km` : ""}</div>
+        <select name="s" style="flex:1;min-width:140px"><option value="">C'était quoi ?</option>${discs.map(x => `<option value="${x.id}" ${x.id === g ? "selected" : ""}>${esc(x.title)}</option>`).join("")}</select>
+        <button class="btn sm">Ajouter</button><button type="button" class="btn ghost sm" data-act="skipWk" data-d="${d}">Ignorer</button></form>`; }).join("")}
+  </div>`;
+}
 function viewHome() {
   const t = today(), d = getDay(t), p = S.profile;
   const list = todosOn(t), done = list.filter(x => x.done).length;
@@ -669,6 +692,7 @@ function viewHome() {
     <button class="btn ghost sm" data-act="healthImport">${ico("heart")} Importer Santé</button>
   </div></div>
 
+  ${detectedBlock()}
   ${todoBlock(t, "To do du jour")}
 
   <div class="card savoir">
@@ -1752,6 +1776,7 @@ const ACT = {
   },
   addOn: (el, e) => { e.stopPropagation(); V.sel = el.dataset.d; eventSheet(el.dataset.d); },
   openMonth: el => { V.agView = "mois"; V.cursor = iso(new Date(parse(V.cursor).getFullYear(), Number(el.dataset.m), 1)); render(); },
+  skipWk: el => { setDay(el.dataset.d, { wkSkip: true }); save(); },
   togglePeriod: el => { const d = el.dataset.d, s = new Set(S.cycle.days); s.has(d) ? s.delete(d) : s.add(d); S.cycle.days = [...s].sort(); save(); },
   setDayV: el => { const d = el.dataset.d, k = el.dataset.k, v = Number(el.dataset.v); setDay(d, { [k]: getDay(d)[k] === v ? null : v }); save(); },
   toggleTag: el => { const d = el.dataset.d, t = el.dataset.k, tags = new Set(getDay(d).tags || []); tags.has(t) ? tags.delete(t) : tags.add(t); setDay(d, { tags: [...tags] }); save(); },
@@ -1831,6 +1856,8 @@ function parseHealth(txt) {
       o[key] = Math.round(n); continue;
     }
     if (/energ|calor|kcal/.test(k)) { const n = num(v), o = days[cur || today()] = days[cur || today()] || {}; if (!isNaN(n)) o[/repos|basal/.test(k) ? "restKcal" : "activeKcal"] = Math.round(n); continue; }
+    if (/regle|menstru|period/.test(k)) { const n = num(v); out.period = !isNaN(n) ? n > 0 : /oui|yes|x/i.test(v); continue; }
+    if (/distance/.test(k) && /ski|nage|swim|velo|bike|cycl/.test(k)) { const n = num(v); if (!isNaN(n)) { const km = Math.round((/\bm\b/.test(v) && n > 100 ? n / 1000 : n) * 100) / 100; out[/ski/.test(k) ? "skiKm" : /nage|swim/.test(k) ? "swimKm" : "bikeKm"] = km; } continue; }
     if (/pas|step/.test(k)) { const n = num(v); if (!isNaN(n)) out.steps = Math.round(n); }
     else if (/sommeil|sleep/.test(k)) { const n = toMinutes(v, k); if (!isNaN(n)) out.sleep = Math.round(n / 60 * 100) / 100; }
     else if (/exerc|entrain|workout|sport/.test(k)) { const n = toMinutes(v, k); if (!isNaN(n)) out.exApple = Math.round(n); }
@@ -1861,10 +1888,11 @@ function importWorkouts(list) {
 const healthLine = d => [d.steps != null ? nf(d.steps) + " pas" : "", d.sleep != null ? f1(d.sleep) + " h de sommeil" : "", d.exApple != null ? d.exApple + " min d'exercice" : "", d.walkKm != null ? f1(d.walkKm) + " km" : "", d.water != null ? (d.water / 1000).toFixed(2).replace(".", ",") + " L d'eau" : "", d.activeKcal != null ? nf(d.activeKcal) + " kcal actives" : "", d.restKcal != null ? nf(d.restKcal) + " kcal au repos" : "", d.hrRest != null ? "FC repos " + d.hrRest : "", d.hrAvg != null ? "FC moy. " + d.hrAvg : "", d.hrMin != null || d.hrMax != null ? `FC ${d.hrMin ?? "?"}–${d.hrMax ?? "?"}` : "", d.hrv != null ? "VFC " + d.hrv + " ms" : ""].filter(Boolean).join(" · ");
 function applyHealth({ days, workouts }) {
   const ks = Object.keys(days).sort(), nW = importWorkouts(workouts);
-  for (const d of ks) setDay(d, days[d]);
+  let nP = 0;
+  for (const d of ks) { const o = { ...days[d] }; if ("period" in o) { const s = new Set(S.cycle.days); if (o.period && !s.has(d)) { s.add(d); nP++; } S.cycle.days = [...s].sort(); delete o.period; } if (Object.keys(o).length) setDay(d, o); }
   try { navigator.clipboard?.writeText("").catch(() => {}); } catch (err) {}
   closeSheet(); save();
-  toast(`${ks.length ? (ks.length === 1 ? `Santé du ${fmtShort(ks[0])}` : `${ks.length} jours`) : ""}${ks.length && nW ? " et " : ""}${nW ? `${nW} séance${nW > 1 ? "s" : ""}` : ""} importé${(ks.length > 1 || nW > 1) ? "s" : ""} ✓`);
+  toast(`${ks.length ? (ks.length === 1 ? `Santé du ${fmtShort(ks[0])}` : `${ks.length} jours`) : ""}${ks.length && nW ? " et " : ""}${nW ? `${nW} séance${nW > 1 ? "s" : ""}` : ""} importé${(ks.length > 1 || nW > 1) ? "s" : ""}${nP ? ` · ${nP} jour${nP > 1 ? "s" : ""} de règles` : ""} ✓`);
 }
 function healthSheet() {
   return `<form data-form="healthImport">
@@ -1996,6 +2024,14 @@ function collectItem(form) {
 document.addEventListener("submit", async e => {
   const form = e.target, k = form.dataset.form; if (!k) return;
   e.preventDefault();
+  if (k === "assignWk") {
+    const d = form.dataset.d, disc = (S.library.sport || []).find(x => x.id === form.s.value), o = S.days[d] || {};
+    if (!disc) { toast("Choisis le sport"); return; }
+    const km = o.skiKm || o.swimKm || o.bikeKm || o.walkKm;
+    const ev = { id: uid(), date: d, time: "", title: disc.title, kind: "activite", cat: "sport", libId: disc.id, duration: Number(o.exApple) || 0, done: true, note: "", photos: [] };
+    if (km && discFields(disc).includes("distance")) ev.distance = km;
+    S.events.push(ev); save(); toast(`${disc.title} ajouté au ${fmtShort(d)} ✓`); return;
+  }
   if (k === "addTodo") {
     const v = form.t.value.trim(); if (!v) return;
     S.todos.push({ id: uid(), text: v, date: form.dataset.date, done: false }); save();
