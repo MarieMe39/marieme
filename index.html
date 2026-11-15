@@ -282,6 +282,7 @@ const IP = {
   gift: '<rect x="4" y="10" width="16" height="10" rx="1"/><rect x="3" y="7" width="18" height="3" rx="1"/><path d="M12 7v13M12 7c-1.5-3-5-3.5-5-1.2C7 7 10 7 12 7zm0 0c1.5-3 5-3.5 5-1.2C17 7 14 7 12 7z"/>',
   book: '<path d="M4 19V5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5 2.5 2.5 0 0 0 6.5 23"/><path d="M8 7h8"/>',
   bolt: '<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>',
+  cart: '<path d="M3 4h2l2.4 11.2a1 1 0 0 0 1 .8h8.9a1 1 0 0 0 1-.8L20 8H6.2"/><circle cx="9.5" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/>',
   pack: '<path d="M7 9a5 5 0 0 1 10 0v11a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1z"/><path d="M10 4.5V3h4v1.5M9.5 14h5"/>',
   camera: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
   pencil: '<path d="M15 5l4 4L9 19H5v-4z"/><path d="M13 7l4 4"/>',
@@ -477,7 +478,7 @@ function defaults() {
     profile: { name: "", birth: "", height: "", weight: "", goalSteps: 8000, goalSleep: 8, goalTraining: 30, goalWater: 2000, cycleLen: 28 },
     settings: { theme: "dark", autoLock: 5 },
     days: {}, todos: [], events: [], cycle: { days: [] }, library: {}, savoir: {},
-    life: { projects: [], wishes: [], strengths: [], weaknesses: [], evolutions: [] }, health: { meals: [], goals: [] }, media: [], learn: { fiches: [] }, travel: { trips: [], wishes: [], moments: [] },
+    life: { projects: [], wishes: [], strengths: [], weaknesses: [], evolutions: [] }, health: { meals: [], goals: [], shop: [] }, media: [], learn: { fiches: [] }, travel: { trips: [], wishes: [], moments: [] },
   };
 }
 function seed(s) {
@@ -665,6 +666,13 @@ function detectedBlock() {
         <button class="btn sm">Ajouter</button><button type="button" class="btn ghost sm" data-act="skipWk" data-d="${d}">Ignorer</button></form>`; }).join("")}
   </div>`;
 }
+function catCount(c) {
+  const T = S.travel || {}, n = { goals: S.life.projects.length, devperso: S.media.length, culture: S.learn.fiches.length,
+    voyage: (T.trips || []).length + (T.wishes || []).length + (T.moments || []).length,
+    sante: S.health.goals.length + S.health.shop.filter(x => !x.done).length }[c.id] ?? (S.library[c.id] || []).length;
+  const w = { sport: "sport", manuel: "activité", mecatro: "projet", devperso: "œuvre", culture: "fiche", goals: "projet", voyage: "élément", cadeaux: "idée", sante: "élément" }[c.id] || "élément";
+  return `${n} ${w}${n > 1 ? (w.endsWith("s") ? "" : "s") : ""}`;
+}
 function viewHome() {
   const t = today(), d = getDay(t), p = S.profile;
   const list = todosOn(t), done = list.filter(x => x.done).length;
@@ -710,7 +718,7 @@ function viewHome() {
     return `<div class="card savoir"><span class="tag">Citation du jour</span><p style="font-size:17px;line-height:1.45;margin:8px 0 4px">« ${esc(q.title)} »</p><div class="faint">${esc(q.m.title)}${q.m.author ? " · " + esc(q.m.author) : ""}</div></div>`; })()}
   <div class="row between"><div class="eyebrow">Mon espace</div><span class="faint" style="margin-top:16px">Maintiens appuyé pour déplacer</span></div>
   <div class="cats" data-sortbox="cats">${ordered(CATS, S.settings.catOrder).map(c => `<button class="cat" data-act="openCat" data-k="${c.id}" data-sort="${c.id}">
-    <div class="ibox">${ico(c.icon)}</div><div class="n">${c.name}</div><div class="c">${(S.library[c.id] || []).length} élément(s)</div></button>`).join("")}</div>`;
+    <div class="ibox">${ico(c.icon)}</div><div class="n">${c.name}</div><div class="c">${catCount(c)}</div></button>`).join("")}</div>`;
 }
 
 /* =========================================================
@@ -1212,12 +1220,15 @@ function viewHealth() {
     <div style="margin-top:12px">${barChart(dates, sl, S.profile.goalSleep, "var(--blue2)", "h", f1)}</div>
     ${nights.map(d => { const x = getDay(d); return `<div class="line" data-act="newSleep" data-d="${d}" style="cursor:pointer"><div class="grow"><div style="font-weight:500;text-transform:capitalize">${fmtLong(d)}</div><div class="faint">${x.bed && x.wake ? `${x.bed} → ${x.wake}` : "Durée notée"}</div></div><b>${f1(x.sleep)} h</b>${x.sleepQ ? `<span style="width:22px;color:var(--muted)">${face(x.sleepQ - 1)}</span>` : ""}</div>`; }).join("")}
   </div>
-  <div class="card"><div class="sec-h"><h2>${ico("leaf")} Alimentation</h2><button class="btn sm hl" data-act="newMeal">${ico("plus")} Repas</button></div>
+  <div class="card"><div class="sec-h"><h2>${ico("cart")} Liste de courses</h2>${S.health.shop.some(x => x.done) ? `<button class="btn ghost sm" data-act="clearShop">Retirer les cochés</button>` : S.health.shop.length ? `<span class="badge">${S.health.shop.length}</span>` : ""}</div>
+    ${S.health.shop.length ? subLines("health", "shop", S.health.shop.slice().sort((a, b) => a.done - b.done), { check: true }) : `<div class="empty">Ajoute ce qu'il te faut, coche en faisant tes courses.</div>`}
+    <form class="subform" data-form="addSub" data-scope="health" data-list="shop"><input name="t" placeholder="Ex. Flocons d'avoine" autocomplete="off"><input name="n" placeholder="Quantité (facultatif)" autocomplete="off"><button class="btn" aria-label="Ajouter">${ico("plus")}</button></form></div>
+  ${S.health.meals.length ? `<div class="card"><div class="sec-h"><h2>${ico("leaf")} Alimentation</h2><button class="btn sm hl" data-act="newMeal">${ico("plus")} Repas</button></div>
     ${days.some(d => meals(d).length) ? days.filter(d => meals(d).length).map(d => `<div class="eyebrow" style="margin:14px 0 4px;text-transform:none;letter-spacing:0;font-size:13px">${d === t ? "Aujourd'hui" : fmtLong(d)}</div>
       ${meals(d).map(m => `<div class="item" data-act="editMeal" data-id="${m.id}">${m.photos?.[0] ? `<img src="${m.photos[0]}" alt="" style="width:46px;height:46px;border-radius:12px;object-fit:cover">` : `<div class="ibox">${ico("leaf")}</div>`}
         <div class="grow"><div style="font-weight:600">${esc(m.type)}</div><div class="faint">${esc(m.desc || "")}</div></div>${m.mood ? `<span style="width:22px;color:var(--muted)">${face(m.mood - 1)}</span>` : ""}</div>`).join("")}`).join("")
-      : `<div class="empty">Note tes repas et comment tu te sens après : utile pour repérer ce qui te donne de l'énergie.</div>`}
-  </div>
+      : `<div class="empty">Aucun repas ces 7 derniers jours.</div>`}
+  </div>` : ""}
   ${subCard("health", "goals", S.health.goals, "Objectifs & routines santé", "heart", "Ex. Me coucher avant 23 h en semaine", "Tes objectifs physiques et tes routines bien-être.", { check: true })}`;
 }
 function sleepForm(d) {
@@ -1776,6 +1787,7 @@ const ACT = {
   },
   addOn: (el, e) => { e.stopPropagation(); V.sel = el.dataset.d; eventSheet(el.dataset.d); },
   openMonth: el => { V.agView = "mois"; V.cursor = iso(new Date(parse(V.cursor).getFullYear(), Number(el.dataset.m), 1)); render(); },
+  clearShop: () => { S.health.shop = S.health.shop.filter(x => !x.done); save(); },
   skipWk: el => { setDay(el.dataset.d, { wkSkip: true }); save(); },
   togglePeriod: el => { const d = el.dataset.d, s = new Set(S.cycle.days); s.has(d) ? s.delete(d) : s.add(d); S.cycle.days = [...s].sort(); save(); },
   setDayV: el => { const d = el.dataset.d, k = el.dataset.k, v = Number(el.dataset.v); setDay(d, { [k]: getDay(d)[k] === v ? null : v }); save(); },
