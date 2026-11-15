@@ -662,8 +662,8 @@ function viewHome() {
     ${ring(done, list.length || 1, "Tâches", `${done}/${list.length}`, "tasks", "var(--orange)")}
   </div>
   <div class="row wrap" style="margin-top:12px;justify-content:center">
+    <button class="btn ghost sm" data-act="addWater" data-v="125">${ico("drop")} +125 ml</button>
     <button class="btn ghost sm" data-act="addWater" data-v="250">${ico("drop")} +250 ml</button>
-    <button class="btn ghost sm" data-act="addWater" data-v="500">${ico("drop")} +500 ml</button>
     <button class="btn ghost sm" data-act="tab" data-k="agenda">${ico("pen")} Mon ressenti</button>
     <button class="btn ghost sm" data-act="healthImport">${ico("heart")} Importer Santé</button>
   </div></div>
@@ -775,7 +775,7 @@ function dayPanel(d, ci) {
     <div style="margin-top:6px">${evs.length ? evs.map(e => `<div class="ev-item">
       <button class="check ${e.done ? "on" : ""}" data-act="toggleEvent" data-id="${e.id}" aria-label="Fait">${e.done ? "✓" : ""}</button>
       <div class="time">${e.time || "—"}</div>
-      <div class="grow" ${e.libId && findItem(e.libId)[1]?.kind === "discipline" ? `data-act="editSeance" data-id="${e.id}" style="cursor:pointer"` : ""}><div style="font-weight:600">${esc(e.title)}</div>
+      <div class="grow" ${e.libId?.startsWith("m:") && mediaOf(e.libId) ? `data-act="openMedia" data-id="${e.libId.slice(2)}" style="cursor:pointer"` : e.libId && findItem(e.libId)[1]?.kind === "discipline" ? `data-act="editSeance" data-id="${e.id}" style="cursor:pointer"` : ""}><div style="font-weight:600">${esc(e.title)}</div>
         <div class="faint row" style="gap:6px"><i class="dot" style="background:${e.kind === "rdv" ? "var(--orange)" : "var(--blue)"}"></i>${e.kind === "rdv" ? "Rendez-vous" : "Activité"} · ${CAT[e.cat]?.name || "Autre"}${e.duration ? " · " + e.duration + " min" : ""}</div></div>
       <button class="x" data-act="delEvent" data-id="${e.id}" aria-label="Supprimer">×</button></div>`).join("") : `<div class="empty">Aucun rendez-vous ni activité.</div>`}</div>
   </div>`;
@@ -784,12 +784,12 @@ function dayPanel(d, ci) {
 /* =========================================================
    8. VUE : STATISTIQUES
    ========================================================= */
-function barChart(dates, vals, goal, color, unit, fmt = nf) {
+function barChart(dates, vals, goal, color, unit, fmt = nf, base = 0) {
   const W = 600, H = 170, padL = 34, padB = 22, padT = 10, n = vals.length;
-  const max = Math.max(goal || 0, ...vals, 1) * 1.1;
+  const max = Math.max(goal || 0, ...vals, base + 1) * (base ? 1.03 : 1.1);
   const bw = (W - padL) / n, barW = Math.max(2, Math.min(28, bw - 2));
-  const y = v => padT + (H - padT - padB) * (1 - v / max);
-  const ticks = [0, max / 2, max].map(v => `<line x1="${padL}" x2="${W}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${padL - 6}" y="${y(v) + 4}" text-anchor="end" font-size="10" fill="var(--muted)">${fmt(v)}</text>`).join("");
+  const y = v => padT + (H - padT - padB) * (1 - Math.max(0, v - base) / (max - base));
+  const ticks = [base, (base + max) / 2, max].map(v => `<line x1="${padL}" x2="${W}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${padL - 6}" y="${y(v) + 4}" text-anchor="end" font-size="10" fill="var(--muted)">${fmt(v)}</text>`).join("");
   const step = Math.ceil(n / 7);
   const bars = vals.map((v, i) => {
     const x = padL + i * bw + (bw - barW) / 2, top = y(v), h = Math.max(0, H - padB - top), r = Math.min(4, barW / 2, h);
@@ -819,7 +819,7 @@ function viewStats() {
   const all = Object.keys(S.days).filter(d => d <= t).sort();
   const byPh = {};
   for (const d of all) {
-    const dd = S.days[d]; if (!dd.mood && !dd.energy && !(dd.tags || []).length) continue;
+    const dd = S.days[d]; if (!dd.mood && !dd.energy && !(dd.tags || []).length && !dd.hrRest) continue;
     const ph = phaseOf(d, ci); if (!ph) continue;
     (byPh[ph.p] = byPh[ph.p] || []).push(dd);
   }
@@ -851,6 +851,9 @@ function viewStats() {
   <div class="card"><h2>Pas</h2>${barChart(dates, steps, p.goalSteps, "var(--blue)", "pas")}</div>
   <div class="card"><h2>Sommeil</h2>${barChart(dates, sleep, p.goalSleep, "var(--blue2)", "h", v => f1(v))}</div>
   <div class="card"><h2>Eau bue</h2>${barChart(dates, water.map(v => v / 1000), p.goalWater / 1000, "var(--sky)", "L", v => f1(v))}</div>
+  ${(() => { const hr = dates.map(d => Number(getDay(d).hrRest) || 0); if (!hr.some(v => v)) return "";
+    const hv = dates.map(d => Number(getDay(d).hrv) || 0).filter(Boolean);
+    return `<div class="card"><h2>Fréquence cardiaque au repos</h2><div class="faint" style="margin:-6px 0 8px">Moyenne : ${nf(avg(hr.filter(Boolean)))} bpm${hv.length ? ` · variabilité (VFC) moyenne : ${nf(avg(hv))} ms` : ""}</div>${barChart(dates, hr, 0, "var(--orange)", "bpm", nf, Math.max(0, Math.min(...hr.filter(Boolean)) - 8))}</div>`; })()}
   <div class="card"><h2>Entraînement</h2>${barChart(dates, train, p.goalTraining, "var(--teal)", "min")}</div>
 
   <div class="card"><h2>Répartition des activités</h2>
@@ -860,9 +863,9 @@ function viewStats() {
   </div>
 
   <div class="card"><h2>Mon corps & mon ressenti</h2>
-    ${Object.keys(byPh).length ? `<table class="data"><thead><tr><th>Phase</th><th>Jours notés</th><th>Humeur moy.</th><th>Énergie moy.</th></tr></thead><tbody>
+    ${Object.keys(byPh).length ? `<table class="data"><thead><tr><th>Phase</th><th>Jours notés</th><th>Humeur moy.</th><th>Énergie moy.</th><th>FC repos</th></tr></thead><tbody>
       ${Object.keys(PHASES).filter(k => byPh[k]).map(k => { const l = byPh[k], mo = l.filter(x => x.mood).map(x => x.mood), en = l.filter(x => x.energy).map(x => x.energy);
-        return `<tr><td><span class="row" style="gap:6px"><i class="dot" style="background:${PHASES[k].c}"></i>${PHASES[k].n}</span></td><td>${l.length}</td><td>${mo.length ? f1(avg(mo)) + " / 5" : "—"}</td><td>${en.length ? f1(avg(en)) + " / 5" : "—"}</td></tr>`; }).join("")}
+        return `<tr><td><span class="row" style="gap:6px"><i class="dot" style="background:${PHASES[k].c}"></i>${PHASES[k].n}</span></td><td>${l.length}</td><td>${mo.length ? f1(avg(mo)) + " / 5" : "—"}</td><td>${en.length ? f1(avg(en)) + " / 5" : "—"}</td><td>${(h => h.length ? nf(avg(h)) + " bpm" : "—")(l.filter(x => x.hrRest).map(x => x.hrRest))}</td></tr>`; }).join("")}
       </tbody></table>` : ""}
     ${insights.length ? insights.map(i => `<div class="insight"><span style="color:var(--hl)">${ico("bulb")}</span><div>${i}</div></div>`).join("") :
       `<div class="empty">Les analyses apparaîtront ici quand tu auras noté ton ressenti et tes règles pendant quelques semaines. Plus tu remplis, plus les tendances seront fiables.</div>`}
@@ -1253,6 +1256,10 @@ function mediaDetail(m) {
   return `<div class="row between"><div><div class="faint">${MTYPES[m.type]} · ${MSTATUS[m.status]}${m.date ? " · " + fmtShort(m.date) + " " + m.date.slice(0, 4) : ""}</div><h2 style="margin:2px 0 0">${esc(m.title)}</h2></div><button class="x" data-act="closeSheet">×</button></div>
     ${m.author ? `<div class="sub">${esc(m.author)}</div>` : ""}${m.rating ? `<div style="color:var(--hl);margin-top:4px">${stars(m.rating)}</div>` : ""}
     ${(m.photos || []).length ? `<div class="thumbs" style="margin-top:12px">${m.photos.map(src => `<img src="${src}" alt="" style="width:96px;height:96px">`).join("")}</div>` : ""}
+    ${(() => { const ss = mediaSessions(m), mins = ss.reduce((a, e) => a + (Number(e.duration) || 0), 0);
+      return `<div class="card" style="margin:14px 0 0;background:var(--card2);padding:12px"><div class="row between"><div><div class="faint">Temps passé</div><div style="font-size:20px;font-weight:700">${fmtDur(mins)} <small class="faint">· ${ss.length} session${ss.length > 1 ? "s" : ""}</small></div></div>
+        <button class="btn sm hl" data-act="mediaSession" data-id="${m.id}">${ico("plus")} Session</button></div>
+        ${ss.slice(0, 5).map(e => `<div class="faint" style="margin-top:6px">${fmtShort(e.date)} ${e.date.slice(0, 4)} · ${fmtDur(e.duration)}</div>`).join("")}</div>`; })()}
     ${m.summary ? `<h3 style="margin-top:16px">Résumé</h3><p style="white-space:pre-line;margin-top:0">${esc(m.summary)}</p>` : ""}
     <h3 style="margin-top:16px">Citations à retenir</h3>
     ${(m.quotes || []).length ? m.quotes.map(q => `<div class="line"><div class="grow"><div style="font-style:italic">« ${esc(q.title)} »</div>${q.note ? `<div class="faint">${esc(q.note)}</div>` : ""}</div><button class="x" data-act="delSub" data-scope="media" data-list="quotes" data-id="${q.id}" aria-label="Supprimer">×</button></div>`).join("") : `<div class="empty">Aucune citation pour l'instant.</div>`}
@@ -1563,7 +1570,13 @@ function statSheet(k) {
     <div class="faint" style="margin-top:6px">Plus tard, ces chiffres pourront venir automatiquement d'Apple Santé.</div>
     <div class="row" style="margin-top:14px"><span class="grow"></span><button type="button" class="btn ghost" data-act="closeSheet">Annuler</button><button class="btn">Enregistrer</button></div></form>`);
 }
-const evActs = cid => (S.library[cid] || []).filter(x => x.kind === "discipline" || x.kind === "activite");
+const MORD = { doing: 0, todo: 1, done: 2 };
+const evActs = cid => cid === "devperso"
+  ? S.media.slice().sort((a, b) => MORD[a.status] - MORD[b.status]).map(m => ({ id: "m:" + m.id, title: `${m.title} · ${MTYPES[m.type]}${m.status === "doing" ? " (en cours)" : ""}`, duration: 0 }))
+  : (S.library[cid] || []).filter(x => x.kind === "discipline" || x.kind === "activite");
+const mediaOf = id => S.media.find(m => "m:" + m.id === id);
+// temps passé sur un livre / film / série : sessions passées ou cochées dans l'agenda
+const mediaSessions = m => S.events.filter(e => e.libId === "m:" + m.id && (e.done || e.date < today())).sort((a, b) => b.date.localeCompare(a.date));
 function eventSheet(d, pre = {}) {
   openSheet(`<form data-form="saveEvent">
     <div class="row between"><h2 style="margin:0">Ajouter au programme</h2><button type="button" class="x" data-act="closeSheet">×</button></div>
@@ -1585,7 +1598,8 @@ function eventSheet(d, pre = {}) {
 function fillActs(form, libId) {
   const c = form.cat.value, acts = CAT[c] ? evActs(c) : [], isDisc = CAT[c]?.kinds.includes("discipline");
   $("#evActRow").hidden = !(acts.length || isDisc);
-  form.libId.innerHTML = acts.map(a => `<option value="${a.id}">${esc(a.title)}</option>`).join("") + (isDisc ? `<option value="__new">+ Nouvelle activité…</option>` : "");
+  form.libId.innerHTML = acts.map(a => `<option value="${a.id}">${esc(a.title)}</option>`).join("") + (isDisc ? `<option value="__new">${c === "mecatro" ? "+ Nouveau projet…" : "+ Nouvelle activité…"}</option>` : "") + (c === "devperso" ? `<option value="__new">Autre (sans fiche)</option>` : "");
+  $("#evActRow").hidden = !(acts.length || isDisc || c === "devperso");
   if (libId && acts.some(a => a.id === libId)) form.libId.value = libId;
   updateEv(form, true);
 }
@@ -1638,7 +1652,14 @@ const ACT = {
   delItem: async el => { if (!(await ask("Supprimer cet élément ?", "Supprimer"))) return; S.library[V.cat] = (S.library[V.cat] || []).filter(x => x.id !== el.dataset.id); if (V.disc === el.dataset.id) V.disc = null; save(); },
   planItem: (el, e) => { e.stopPropagation(); const [cat, it] = findItem(el.dataset.id); eventSheet(V.sel, { libId: it.id, title: it.title, duration: it.duration, cat, kind: "activite" }); },
   closeSheet: () => closeSheet(),
-  healthImport: () => openSheet(healthSheet()),
+  // Un toucher : lit le presse-papiers (iOS affiche « Coller »), importe, sinon ouvre la fenêtre de collage
+  healthImport: async () => {
+    try {
+      const t = await navigator.clipboard.readText(), r = parseHealth(t);
+      if (Object.keys(r.days).length || r.workouts.length) return applyHealth(r);
+    } catch (err) {}
+    openSheet(healthSheet());
+  },
   openEnt: (el, e) => { e.stopPropagation(); const o = findEnt(el.dataset.kind, el.dataset.id); if (o) openSheet(entDetail(el.dataset.kind, o)); },
   newEnt: el => { draftSeance = { photos: [] }; openSheet(entForm(el.dataset.kind, {})); },
   editEnt: el => { const o = findEnt(el.dataset.kind, el.dataset.id); draftSeance = { photos: [...(o.photos || [])] }; openSheet(entForm(el.dataset.kind, o)); },
@@ -1689,6 +1710,7 @@ const ACT = {
   mType: el => { V.mType = el.dataset.k; render(); },
   mStatus: el => { V.mStatus = el.dataset.k; render(); },
   newMedia: () => { draftSeance = { photos: [] }; openSheet(mediaForm({ type: V.mType !== "all" ? V.mType : "livre", status: "todo" })); },
+  mediaSession: el => eventSheet(today(), { cat: "devperso", libId: "m:" + el.dataset.id, kind: "activite" }),
   openMedia: el => { V.media = el.dataset.id; openSheet(mediaDetail(S.media.find(m => m.id === el.dataset.id))); },
   editMedia: el => { const m = S.media.find(x => x.id === el.dataset.id); draftSeance = { photos: [...(m.photos || [])], base: m }; openSheet(mediaForm(m)); },
   delMedia: async el => { if (!(await ask("Supprimer de ta bibliothèque ?", "Supprimer"))) return; S.media = S.media.filter(x => x.id !== el.dataset.id); save(); },
@@ -1796,6 +1818,12 @@ function parseHealth(txt) {
       workouts.push({ date: cur || today(), type, duration: dur ? Math.round(toMinutes(dur, "")) || 0 : 0, distance: dist ? (num(dist) || 0) : 0, time: hm ? `${pad(+hm[1])}:${hm[2]}` : "" });
       continue;
     }
+    // fréquence cardiaque (bpm) et variabilité (ms)
+    if (/vfc|variabil|hrv|fc\b|cardia|heart|pouls|bpm/.test(k)) {
+      const n = num(v), o = days[cur || today()] = days[cur || today()] || {}; if (isNaN(n)) continue;
+      const key = /vfc|variabil|hrv/.test(k) ? "hrv" : /repos|rest/.test(k) ? "hrRest" : /max/.test(k) ? "hrMax" : /\bmin/.test(k) ? "hrMin" : "hrAvg";
+      o[key] = Math.round(n); continue;
+    }
     if (/energ|calor|kcal/.test(k)) { const n = num(v), o = days[cur || today()] = days[cur || today()] || {}; if (!isNaN(n)) o[/repos|basal/.test(k) ? "restKcal" : "activeKcal"] = Math.round(n); continue; }
     if (/pas|step/.test(k)) { const n = num(v); if (!isNaN(n)) out.steps = Math.round(n); }
     else if (/sommeil|sleep/.test(k)) { const n = toMinutes(v, k); if (!isNaN(n)) out.sleep = Math.round(n / 60 * 100) / 100; }
@@ -1824,7 +1852,14 @@ function importWorkouts(list) {
   }
   return n;
 }
-const healthLine = d => [d.steps != null ? nf(d.steps) + " pas" : "", d.sleep != null ? f1(d.sleep) + " h de sommeil" : "", d.exApple != null ? d.exApple + " min d'exercice" : "", d.walkKm != null ? f1(d.walkKm) + " km" : "", d.water != null ? (d.water / 1000).toFixed(2).replace(".", ",") + " L d'eau" : "", d.activeKcal != null ? nf(d.activeKcal) + " kcal actives" : "", d.restKcal != null ? nf(d.restKcal) + " kcal au repos" : ""].filter(Boolean).join(" · ");
+const healthLine = d => [d.steps != null ? nf(d.steps) + " pas" : "", d.sleep != null ? f1(d.sleep) + " h de sommeil" : "", d.exApple != null ? d.exApple + " min d'exercice" : "", d.walkKm != null ? f1(d.walkKm) + " km" : "", d.water != null ? (d.water / 1000).toFixed(2).replace(".", ",") + " L d'eau" : "", d.activeKcal != null ? nf(d.activeKcal) + " kcal actives" : "", d.restKcal != null ? nf(d.restKcal) + " kcal au repos" : "", d.hrRest != null ? "FC repos " + d.hrRest : "", d.hrAvg != null ? "FC moy. " + d.hrAvg : "", d.hrMin != null || d.hrMax != null ? `FC ${d.hrMin ?? "?"}–${d.hrMax ?? "?"}` : "", d.hrv != null ? "VFC " + d.hrv + " ms" : ""].filter(Boolean).join(" · ");
+function applyHealth({ days, workouts }) {
+  const ks = Object.keys(days).sort(), nW = importWorkouts(workouts);
+  for (const d of ks) setDay(d, days[d]);
+  try { navigator.clipboard?.writeText("").catch(() => {}); } catch (err) {}
+  closeSheet(); save();
+  toast(`${ks.length ? (ks.length === 1 ? `Santé du ${fmtShort(ks[0])}` : `${ks.length} jours`) : ""}${ks.length && nW ? " et " : ""}${nW ? `${nW} séance${nW > 1 ? "s" : ""}` : ""} importé${(ks.length > 1 || nW > 1) ? "s" : ""} ✓`);
+}
 function healthSheet() {
   return `<form data-form="healthImport">
     <div class="row between"><h2 style="margin:0">Importer depuis Apple Santé</h2><button type="button" class="x" data-act="closeSheet">×</button></div>
@@ -1997,12 +2032,9 @@ document.addEventListener("submit", async e => {
       closeSheet(); save(); toast(`${n} fiche${n > 1 ? "s" : ""} ajoutée${n > 1 ? "s" : ""}`);
     } catch (err) { $("#impErr").textContent = "Je n'ai pas reconnu de fiche dans ce texte. Vérifie que tout le bloc a été copié."; }
   } else if (k === "healthImport") {
-    const { days, workouts } = parseHealth(form.t.value), ks = Object.keys(days).sort();
-    const nW = importWorkouts(workouts);
-    if (!ks.length && !nW) { $("#hprev").textContent = "Je n'ai reconnu aucune donnée. Vérifie que tout le texte du raccourci a été collé."; return; }
-    for (const d of ks) setDay(d, days[d]);
-    try { navigator.clipboard?.writeText(""); } catch (err) {}
-    closeSheet(); save(); toast(`${ks.length ? (ks.length === 1 ? `Données du ${fmtShort(ks[0])}` : `${ks.length} jours`) : ""}${ks.length && nW ? " et " : ""}${nW ? `${nW} séance${nW > 1 ? "s" : ""}` : ""} importé${(ks.length > 1 || nW > 1) ? "s" : ""}`);
+    const r = parseHealth(form.t.value);
+    if (!Object.keys(r.days).length && !r.workouts.length) { $("#hprev").textContent = "Je n'ai reconnu aucune donnée. Vérifie que tout le texte du raccourci a été collé."; return; }
+    applyHealth(r);
   } else if (k === "saveEnt") {
     const kind = form.dataset.kind, C = ENT[kind], fd = Object.fromEntries(new FormData(form).entries()), l = C.list();
     let o = l.find(x => x.id === form.dataset.id); const isNew = !o; if (isNew) o = { id: uid(), done: false };
@@ -2034,9 +2066,9 @@ document.addEventListener("submit", async e => {
   } else if (k === "saveEvent") {
     const fd = Object.fromEntries(new FormData(form).entries()), c = fd.cat, rdv = c === "rdv";
     const pick = !$("#evActRow").hidden && fd.libId && fd.libId !== "__new" ? fd.libId : null;
-    const it0 = pick ? findItem(pick)[1] : null, title = it0 ? it0.title : (fd.title || "").trim();
+    const it0 = pick ? (pick.startsWith("m:") ? mediaOf(pick) : findItem(pick)[1]) : null, title = it0 ? it0.title : (fd.title || "").trim();
     if (!title) return;
-    const ev = { id: uid(), date: fd.date, time: fd.time, title, kind: rdv ? "rdv" : "activite", cat: rdv ? "autre" : c, duration: Number(fd.duration) || 0, libId: pick, done: false };
+    const ev = { id: uid(), date: fd.date, time: fd.time, title, kind: rdv ? "rdv" : "activite", cat: rdv ? "autre" : c, duration: Number(fd.duration) || 0, libId: pick, done: !!(pick && pick.startsWith("m:") && fd.date <= today()) };
     if (fd.addLib && fd.libId === "__new" && CAT[c]?.kinds.includes("discipline")) {
       const P = PRESETS[c]?.[title], lib = S.library[c] = S.library[c] || [];
       const it = { id: uid(), kind: "discipline", title, duration: ev.duration || P?.d || 0, note: "", goals: [], gear: [], fields: P ? P.f : (c === "sport" ? ["distance"] : []), gpx: P ? !!P.gpx : c === "sport" };
