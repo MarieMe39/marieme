@@ -674,7 +674,7 @@ function normalize(s) {
     if (it.kind === "discipline") { it.goals = it.goals || []; it.gear = it.gear || []; if (!it.fields) { const P = PRESETS[cid]?.[it.title]; it.fields = P ? P.f : (cid === "sport" ? ["distance"] : []); it.gpx = P ? !!P.gpx : cid === "sport"; } }
   }
   if (!s.dedup1) { dedupImported(s); s.dedup1 = true; }
-  if (!s.kj1) { for (const d of Object.values(s.days || {})) if (Number(d.restKcal) > KJ_REST) d.restKcal = Math.round(d.restKcal / 4.184); s.kj1 = true; }
+  if (!s.kj2) { for (const d of Object.values(s.days || {})) if (Number(d.restKcal) > KJ_REST) for (const k of ["activeKcal", "restKcal"]) if (d[k] != null) d[k] = Math.round(d[k] / 4.184); s.kj1 = s.kj2 = true; }
   return s;
 }
 
@@ -1748,6 +1748,7 @@ function viewProfil() {
       : `<button class="btn" data-act="setPin">${ico("lock")} Créer un code</button>`}
     <div class="faint" style="margin-top:10px">Si tu oublies ton code, les données chiffrées sont irrécupérables. Pense à faire des sauvegardes.</div></div>
   <div class="card"><h2>Apple Santé & Suunto</h2>
+    <div class="faint" style="margin:-6px 0 8px">Version de l'appli : ${APP_VERSION}</div>
     <p class="sub" style="margin-top:0">Ton raccourci iPhone copie tes pas, ton sommeil et ton exercice du jour. Colle-les ici : les données restent sur ton appareil.</p>
     <button class="btn ghost" data-act="healthImport">${ico("heart")} Importer depuis Apple Santé</button></div>
   <div class="card"><h2>Photos & vidéos</h2>
@@ -2157,8 +2158,9 @@ function parseHealth(txt) {
     }
     if (/energ|calor|kcal|\bkj\b/.test(k)) {
       let n = num(v); const o = days[cur || today()] = days[cur || today()] || {}, rest = /repos|basal|resting|\brest\b/.test(k); if (isNaN(n)) continue;
-      // Apple Santé peut donner l'énergie en kilojoules : 1 kcal = 4,184 kJ
-      if (/kj|kilojoule/i.test(v + " " + k) || (rest && n > KJ_REST)) n = n / 4.184;
+      // Apple Santé peut donner l'énergie en kilojoules : repéré par l'unité, ou par une énergie au repos impossible en kcal.
+      // Dans ce cas toutes les énergies du jour sont converties (1 kcal = 4,184 kJ), voir plus bas.
+      if (/kj|kilojoule/i.test(v + " " + k) || (rest && n > KJ_REST)) o._kj = true;
       o[rest ? "restKcal" : "activeKcal"] = Math.round(n); continue;
     }
     if (/regle|menstru|period/.test(k)) { const n = num(v); out.period = !isNaN(n) ? n > 0 : /oui|yes|x/i.test(v); continue; }
@@ -2170,6 +2172,7 @@ function parseHealth(txt) {
     else if (/distance/.test(k)) { let n = num(v); if (!isNaN(n)) out.walkKm = Math.round((/\bm\b/.test(v) && n > 100 ? n / 1000 : n) * 100) / 100; }
   }
   for (const [d, mn] of Object.entries(sleepAdd)) { days[d] = days[d] || {}; days[d].sleep = Math.round(mn / 60 * 100) / 100; }
+  for (const o of Object.values(days)) if (o._kj) { delete o._kj; for (const k of ["activeKcal", "restKcal"]) if (o[k] != null) o[k] = Math.round(o[k] / 4.184); }
   for (const d of Object.keys(days)) if (!Object.keys(days[d]).length) delete days[d];
   return { days, workouts };
 }
@@ -2216,6 +2219,7 @@ const healthLine = d => [d.steps != null ? nf(d.steps) + " pas" : "", d.sleep !=
 const HKEYS = ["steps", "sleep", "exApple", "walkKm", "activeKcal", "restKcal", "hrRest", "hrAvg", "hrMin", "hrMax", "hrv", "skiKm", "swimKm", "bikeKm"];
 // Au-delà, une énergie « au repos » ne peut pas être en kcal : c'est une valeur en kilojoules
 const KJ_REST = 4000;
+const APP_VERSION = "2026-11-17 · énergie en kJ";
 const kcalWarn = d => (Number(d.activeKcal) || 0) > 2500 || (Number(d.activeKcal) || 0) + (Number(d.restKcal) || 0) > 5000;
 function applyHealth({ days, workouts }) {
   const ks = Object.keys(days).sort(), nW = importWorkouts(workouts);
