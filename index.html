@@ -674,6 +674,7 @@ function normalize(s) {
     if (it.kind === "discipline") { it.goals = it.goals || []; it.gear = it.gear || []; if (!it.fields) { const P = PRESETS[cid]?.[it.title]; it.fields = P ? P.f : (cid === "sport" ? ["distance"] : []); it.gpx = P ? !!P.gpx : cid === "sport"; } }
   }
   if (!s.dedup1) { dedupImported(s); s.dedup1 = true; }
+  if (!s.kj1) { for (const d of Object.values(s.days || {})) if (Number(d.restKcal) > KJ_REST) d.restKcal = Math.round(d.restKcal / 4.184); s.kj1 = true; }
   return s;
 }
 
@@ -2154,7 +2155,12 @@ function parseHealth(txt) {
       const key = /vfc|variabil|hrv/.test(k) ? "hrv" : /repos|rest/.test(k) ? "hrRest" : /max/.test(k) ? "hrMax" : /\bmin/.test(k) ? "hrMin" : "hrAvg";
       o[key] = Math.round(n); continue;
     }
-    if (/energ|calor|kcal/.test(k)) { const n = num(v), o = days[cur || today()] = days[cur || today()] || {}; if (!isNaN(n)) o[/repos|basal|resting|\brest\b/.test(k) ? "restKcal" : "activeKcal"] = Math.round(n); continue; }
+    if (/energ|calor|kcal|\bkj\b/.test(k)) {
+      let n = num(v); const o = days[cur || today()] = days[cur || today()] || {}, rest = /repos|basal|resting|\brest\b/.test(k); if (isNaN(n)) continue;
+      // Apple Santé peut donner l'énergie en kilojoules : 1 kcal = 4,184 kJ
+      if (/kj|kilojoule/i.test(v + " " + k) || (rest && n > KJ_REST)) n = n / 4.184;
+      o[rest ? "restKcal" : "activeKcal"] = Math.round(n); continue;
+    }
     if (/regle|menstru|period/.test(k)) { const n = num(v); out.period = !isNaN(n) ? n > 0 : /oui|yes|x/i.test(v); continue; }
     if (/distance/.test(k) && /ski|nage|swim|velo|bike|cycl/.test(k)) { const n = num(v); if (!isNaN(n)) { const km = Math.round((/\bm\b/.test(v) && n > 100 ? n / 1000 : n) * 100) / 100; out[/ski/.test(k) ? "skiKm" : /nage|swim/.test(k) ? "swimKm" : "bikeKm"] = km; } continue; }
     if (/pas|step/.test(k)) { const n = num(v); if (!isNaN(n)) out.steps = Math.round(n); }
@@ -2208,6 +2214,8 @@ function dedupImported(s) {
 const healthLine = d => [d.steps != null ? nf(d.steps) + " pas" : "", d.sleep != null ? f1(d.sleep) + " h de sommeil" : "", d.exApple != null ? d.exApple + " min d'exercice" : "", d.walkKm != null ? f1(d.walkKm) + " km" : "", d.water != null ? (d.water / 1000).toFixed(2).replace(".", ",") + " L d'eau" : "", d.activeKcal != null ? nf(d.activeKcal) + " kcal actives" : "", d.restKcal != null ? nf(d.restKcal) + " kcal au repos" : "", d.hrRest != null ? "FC repos " + d.hrRest : "", d.hrAvg != null ? "FC moy. " + d.hrAvg : "", d.hrMin != null || d.hrMax != null ? `FC ${d.hrMin ?? "?"}–${d.hrMax ?? "?"}` : "", d.hrv != null ? "VFC " + d.hrv + " ms" : ""].filter(Boolean).join(" · ");
 // Valeurs venant du raccourci : remplacées en entier à chaque transfert (l'eau, saisie à la main, est gardée si absente)
 const HKEYS = ["steps", "sleep", "exApple", "walkKm", "activeKcal", "restKcal", "hrRest", "hrAvg", "hrMin", "hrMax", "hrv", "skiKm", "swimKm", "bikeKm"];
+// Au-delà, une énergie « au repos » ne peut pas être en kcal : c'est une valeur en kilojoules
+const KJ_REST = 4000;
 const kcalWarn = d => (Number(d.activeKcal) || 0) > 2500 || (Number(d.activeKcal) || 0) + (Number(d.restKcal) || 0) > 5000;
 function applyHealth({ days, workouts }) {
   const ks = Object.keys(days).sort(), nW = importWorkouts(workouts);
