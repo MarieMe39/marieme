@@ -275,6 +275,7 @@ const avg = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0;
    1b. ICÔNES (traits fins, style sobre)
    ========================================================= */
 const IP = {
+  refresh: '<path d="M20 11a8 8 0 0 0-14.6-4.5L3 9"/><path d="M3 4v5h5"/><path d="M4 13a8 8 0 0 0 14.6 4.5L21 15"/><path d="M21 20v-5h-5"/>',
   target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
   mountain: '<path d="M3 20l6.5-11 4 6.5 2.5-4 5 8.5z"/><path d="M8 12.5l1.5 1 1.5-1"/>',
   scissors: '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.2 8.2L20 20M8.2 15.8L20 4"/>',
@@ -623,7 +624,7 @@ function defaults() {
     v: 1,
     profile: { name: "", birth: "", height: "", weight: "", goalSteps: 8000, goalSleep: 8, goalTraining: 30, goalWater: 2000, cycleLen: 28 },
     settings: { theme: "dark", autoLock: 5 },
-    days: {}, todos: [], events: [], cycle: { days: [] }, library: {}, savoir: {},
+    days: {}, todos: [], events: [], routines: [], routineSkip: [], cycle: { days: [] }, library: {}, savoir: {},
     life: { projects: [], wishes: [], strengths: [], weaknesses: [], evolutions: [] }, health: { meals: [], goals: [], shop: [] }, media: [], learn: { fiches: [] }, travel: { trips: [], wishes: [], moments: [] },
   };
 }
@@ -672,6 +673,7 @@ function normalize(s) {
     if (it.kind === "activite") it.kind = "discipline";
     if (it.kind === "discipline") { it.goals = it.goals || []; it.gear = it.gear || []; if (!it.fields) { const P = PRESETS[cid]?.[it.title]; it.fields = P ? P.f : (cid === "sport" ? ["distance"] : []); it.gpx = P ? !!P.gpx : cid === "sport"; } }
   }
+  if (!s.dedup1) { dedupImported(s); s.dedup1 = true; }
   return s;
 }
 
@@ -695,7 +697,38 @@ function archiveSavoir() {
 function carryOver() {
   const t = today(); let n = 0;
   for (const x of S.todos) if (!x.done && x.date < t) { x.carried = (x.carried || 0) + diffDays(x.date, t); x.date = t; n++; }
+  return n + applyRoutines();
+}
+// Routines : une activité qui revient chaque semaine le même jour. Elles sont posées dans l'agenda
+// 8 semaines à l'avance ; un jour supprimé (cours annulé) est mémorisé pour ne pas revenir.
+const ROUTINE_WEEKS = 8;
+function applyRoutines() {
+  const t = today(), end = addDays(t, ROUTINE_WEEKS * 7); let n = 0;
+  S.routineSkip = (S.routineSkip || []).filter(k => k.slice(-10) >= t);
+  const skip = new Set(S.routineSkip);
+  for (const r of S.routines || []) {
+    let d = r.start > t ? r.start : t;
+    while (parse(d).getDay() !== r.wd) d = addDays(d, 1);
+    for (; d <= end; d = addDays(d, 7)) {
+      if (skip.has(r.id + ":" + d) || S.events.some(e => e.routineId === r.id && e.date === d)) continue;
+      S.events.push({ id: uid(), date: d, time: r.time || "", title: r.title, kind: r.kind, cat: r.cat, duration: r.duration || 0, libId: r.libId || null, done: false, routineId: r.id });
+      n++;
+    }
+  }
   return n;
+}
+const routineLabel = r => `chaque ${JOURS[r.wd]}${r.time ? " à " + r.time.replace(/^0?(\d+):(\d\d)$/, (_, h, m) => h + " h" + (m === "00" ? "" : " " + m)) : ""}`;
+function deleteRoutine(id) {
+  const t = today();
+  S.routines = S.routines.filter(r => r.id !== id);
+  S.events = S.events.filter(e => !(e.routineId === id && !e.done && e.date >= t));
+  S.routineSkip = S.routineSkip.filter(k => !k.startsWith(id + ":"));
+}
+function choose(msg, opts) {
+  return new Promise(res => {
+    const bg = openSheet(`<h2>${msg}</h2><div style="display:grid;gap:8px;margin-top:16px">${opts.map((o, i) => `<button class="btn ${o.cls || ""}" data-i="${i}">${o.t}</button>`).join("")}<button class="btn ghost" data-i="-1">Annuler</button></div>`);
+    bg.querySelectorAll("[data-i]").forEach(b => b.onclick = () => { closeSheet(); res(Number(b.dataset.i)); });
+  });
 }
 
 // Cycle : on déduit les débuts de règles des jours notés
@@ -862,8 +895,6 @@ function viewHome() {
     <div class="faint" style="margin-top:8px">${nRead} savoir${nRead > 1 ? "s" : ""} appris au total · retrouve-les tous dans Culture générale</div>
   </div>
 
-  ${(() => { const qs = S.media.flatMap(m => (m.quotes || []).map(q => ({ ...q, m }))); if (!qs.length) return ""; const q = qs[Math.floor(Date.now() / 86400000) % qs.length];
-    return `<div class="card savoir"><span class="tag">Citation du jour</span><p style="font-size:17px;line-height:1.45;margin:8px 0 4px">« ${esc(q.title)} »</p><div class="faint">${esc(q.m.title)}${q.m.author ? " · " + esc(q.m.author) : ""}</div></div>`; })()}
   <div class="row between"><div class="eyebrow">Mon espace</div><span class="faint" style="margin-top:16px">Maintiens appuyé pour déplacer</span></div>
   <div class="cats" data-sortbox="cats">${ordered(CATS, S.settings.catOrder).map(c => `<button class="cat" data-act="openCat" data-k="${c.id}" data-sort="${c.id}">
     <div class="ibox">${ico(c.icon)}</div><div class="n">${c.name}</div><div class="c">${catCount(c)}</div></button>`).join("")}</div>`;
@@ -948,7 +979,10 @@ function dayPanel(d, ci) {
       <div><label>Sommeil (h)</label><input type="number" inputmode="decimal" step="0.25" min="0" max="24" data-ch="dayval" data-d="${d}" data-k="sleep" value="${dd.sleep != null ? Math.round(dd.sleep * 100) / 100 : ""}"></div>
       <div><label>Eau (ml)</label><input type="number" inputmode="numeric" step="50" min="0" data-ch="dayval" data-d="${d}" data-k="water" value="${dd.water ?? ""}"></div>
       <div><label>Sport (min)</label><input type="number" inputmode="numeric" min="0" data-ch="dayval" data-d="${d}" data-k="training" value="${dd.training ?? ""}"></div>
+      <div><label>Énergie active (kcal)</label><input type="number" inputmode="numeric" min="0" data-ch="dayval" data-d="${d}" data-k="activeKcal" value="${dd.activeKcal ?? ""}"></div>
+      <div><label>Énergie au repos (kcal)</label><input type="number" inputmode="numeric" min="0" data-ch="dayval" data-d="${d}" data-k="restKcal" value="${dd.restKcal ?? ""}"></div>
     </div>
+    ${kcalWarn(dd) ? `<div class="faint" style="margin-top:8px;color:var(--orange)">⚠ ${nf(totalKcal(d))} kcal sur la journée, c'est inhabituel : vérifie l'énergie active (doublon Suunto + iPhone dans Apple Santé ?).</div>` : ""}
   </div>
 
   <div class="card">
@@ -957,8 +991,13 @@ function dayPanel(d, ci) {
       <button class="check ${e.done ? "on" : ""}" data-act="toggleEvent" data-id="${e.id}" aria-label="Fait">${e.done ? "✓" : ""}</button>
       <div class="time">${e.time || "—"}</div>
       <div class="grow" ${e.libId?.startsWith("m:") && mediaOf(e.libId) ? `data-act="openMedia" data-id="${e.libId.slice(2)}" style="cursor:pointer"` : e.libId && findItem(e.libId)[1]?.kind === "discipline" ? `data-act="editSeance" data-id="${e.id}" style="cursor:pointer"` : ""}><div style="font-weight:600">${esc(e.title)}</div>
-        <div class="faint row" style="gap:6px"><i class="dot" style="background:${e.kind === "rdv" ? "var(--orange)" : "var(--blue)"}"></i>${e.kind === "rdv" ? "Rendez-vous" : "Activité"} · ${CAT[e.cat]?.name || "Autre"}${e.duration ? " · " + e.duration + " min" : ""}</div></div>
+        <div class="faint row" style="gap:6px"><i class="dot" style="background:${e.kind === "rdv" ? "var(--orange)" : "var(--blue)"}"></i>${e.kind === "rdv" ? "Rendez-vous" : "Activité"} · ${CAT[e.cat]?.name || "Autre"}${e.duration ? " · " + e.duration + " min" : ""}${e.routineId ? " · ↻ routine" : ""}</div></div>
       <button class="x" data-act="delEvent" data-id="${e.id}" aria-label="Supprimer">×</button></div>`).join("") : `<div class="empty">Aucun rendez-vous ni activité.</div>`}</div>
+  </div>
+  <div class="card">
+    <h2 style="margin:0 0 6px">${ico("refresh")} Mes routines</h2>
+    ${S.routines.length ? S.routines.slice().sort((a, b) => ((a.wd + 6) % 7) - ((b.wd + 6) % 7) || (a.time || "").localeCompare(b.time || "")).map(r => `<div class="line"><div class="grow"><div style="font-weight:600">${esc(r.title)}</div><div class="faint">${routineLabel(r)}${r.duration ? " · " + r.duration + " min" : ""}</div></div><button class="x" data-act="delRoutine" data-id="${r.id}" aria-label="Arrêter la routine">×</button></div>`).join("")
+      : `<div class="faint">Une activité qui revient chaque semaine (ex. pole dance le mercredi) : ajoute-la au programme et coche « Routine ». Elle se remplit toute seule ; si un cours est annulé, supprime juste ce jour-là.</div>`}
   </div>`;
 }
 
@@ -1785,7 +1824,9 @@ function eventSheet(d, pre = {}) {
       <div><label>Début</label><input name="time" type="time" value="${pre.time || ""}" data-ch="evTime"></div>
       <div><label>Fin</label><input name="end" type="time" data-ch="evTime"></div>
       <div><label>Durée (min)</label><input name="duration" type="number" min="0" value="${pre.duration || ""}"></div></div>
+    <label class="row" style="gap:8px;color:var(--text);margin-top:14px"><input type="checkbox" name="repeat" style="width:auto"> <span>${ico("refresh")} Routine : répéter <b id="evRepDay">chaque ${JOURS[parse(d).getDay()]}</b></span></label>
     <div class="row" style="margin-top:16px"><span class="grow"></span><button class="btn">Ajouter</button></div></form>`);
+  $("#sheet form").date.addEventListener("change", e => { if (e.target.value) $("#evRepDay").textContent = "chaque " + JOURS[parse(e.target.value).getDay()]; });
   const form = $("#sheet form");
   form.cat.value = pre.kind === "rdv" ? "rdv" : (pre.cat && (CAT[pre.cat] || pre.cat === "autre") ? pre.cat : "sport");
   fillActs(form, pre.libId);
@@ -2035,7 +2076,18 @@ const ACT = {
   toggleTag: el => { const d = el.dataset.d, t = el.dataset.k, tags = new Set(getDay(d).tags || []); tags.has(t) ? tags.delete(t) : tags.add(t); setDay(d, { tags: [...tags] }); save(); },
   newEvent: el => eventSheet(el.dataset.d),
   toggleEvent: el => { const e = S.events.find(x => x.id === el.dataset.id); e.done = !e.done; save(); },
-  delEvent: async el => { if (!(await ask("Supprimer cet élément du programme ?", "Supprimer"))) return; S.events = S.events.filter(x => x.id !== el.dataset.id); save(); },
+  delEvent: async el => {
+    const ev = S.events.find(x => x.id === el.dataset.id), r = ev?.routineId && S.routines.find(x => x.id === ev.routineId);
+    if (r) {
+      const c = await choose(`${esc(r.title)} · ${routineLabel(r)}`, [{ t: `Annuler seulement le ${fmtShort(ev.date)}` }, { t: "Arrêter toute la routine", cls: "danger" }]);
+      if (c < 0) return;
+      if (c === 0) { S.routineSkip.push(r.id + ":" + ev.date); S.events = S.events.filter(x => x.id !== ev.id); toast(`${r.title} annulé le ${fmtShort(ev.date)}`); }
+      else { deleteRoutine(r.id); toast("Routine arrêtée"); }
+      return save();
+    }
+    if (!(await ask("Supprimer cet élément du programme ?", "Supprimer"))) return; S.events = S.events.filter(x => x.id !== el.dataset.id); save();
+  },
+  delRoutine: async el => { const r = S.routines.find(x => x.id === el.dataset.id); if (!r || !(await ask(`Arrêter la routine « ${esc(r.title)} » (${routineLabel(r)}) ? Les séances passées restent dans l'agenda.`, "Arrêter"))) return; deleteRoutine(r.id); save(); },
   range: el => { V.range = Number(el.dataset.v); render(); },
   theme: el => { S.settings.theme = el.dataset.k; save(); },
   setPin: () => pinSheet(),
@@ -2102,7 +2154,7 @@ function parseHealth(txt) {
       const key = /vfc|variabil|hrv/.test(k) ? "hrv" : /repos|rest/.test(k) ? "hrRest" : /max/.test(k) ? "hrMax" : /\bmin/.test(k) ? "hrMin" : "hrAvg";
       o[key] = Math.round(n); continue;
     }
-    if (/energ|calor|kcal/.test(k)) { const n = num(v), o = days[cur || today()] = days[cur || today()] || {}; if (!isNaN(n)) o[/repos|basal/.test(k) ? "restKcal" : "activeKcal"] = Math.round(n); continue; }
+    if (/energ|calor|kcal/.test(k)) { const n = num(v), o = days[cur || today()] = days[cur || today()] || {}; if (!isNaN(n)) o[/repos|basal|resting|\brest\b/.test(k) ? "restKcal" : "activeKcal"] = Math.round(n); continue; }
     if (/regle|menstru|period/.test(k)) { const n = num(v); out.period = !isNaN(n) ? n > 0 : /oui|yes|x/i.test(v); continue; }
     if (/distance/.test(k) && /ski|nage|swim|velo|bike|cycl/.test(k)) { const n = num(v); if (!isNaN(n)) { const km = Math.round((/\bm\b/.test(v) && n > 100 ? n / 1000 : n) * 100) / 100; out[/ski/.test(k) ? "skiKm" : /nage|swim/.test(k) ? "swimKm" : "bikeKm"] = km; } continue; }
     if (/pas|step/.test(k)) { const n = num(v); if (!isNaN(n)) out.steps = Math.round(n); }
@@ -2118,25 +2170,49 @@ function parseHealth(txt) {
 // Types d'entraînement Apple Santé → tes sports
 const WMAP = [[/rando|hiking/i, "Randonnée"], [/course|running|run\b/i, "Course à pied"], [/yoga/i, "Yoga"], [/snowboard/i, "Snowboard"], [/ski/i, "Ski"],
   [/muscu|renfo|fonctionnel|strength|core|haltéro/i, "Renforcement musculaire"], [/pole/i, "Pole dance"], [/plong|dive/i, "Plongée sous-marine"], [/moto/i, "Moto"], [/parachut|skydiv/i, "Parachute"]];
+// Le dernier transfert remplace les précédents : une séance déjà importée (même jour, même sport, durée proche)
+// est mise à jour au lieu d'être ajoutée une 2e fois, et les séances importées qui ne figurent plus dans le transfert
+// sont retirées des jours concernés (sauf si tu y as ajouté une note ou des photos).
+const sameSession = (e, w) => e.date === w.date && e.title === w.title && Math.abs((Number(e.duration) || 0) - (w.duration || 0)) <= 3 && (!e.time || !w.time || e.time === w.time);
 function importWorkouts(list) {
-  let n = 0; const lib = S.library.sport = S.library.sport || [];
+  let n = 0; const lib = S.library.sport = S.library.sport || [], kept = new Set(), dates = new Set();
   for (const w of list) {
     if (!w.type) continue;
     const name = (WMAP.find(([re]) => re.test(w.type)) || [])[1];
     const disc = lib.find(x => x.title.toLowerCase() === (name || w.type).toLowerCase());
-    const extId = `apple:${w.date}:${w.time}:${w.type}`;
-    let ev = S.events.find(e => e.extId === extId);
-    if (!ev) { ev = { id: uid(), extId, kind: "activite", cat: "sport", done: true, note: "", photos: [] }; S.events.push(ev); n++; }
-    Object.assign(ev, { date: w.date, time: w.time, title: disc ? disc.title : w.type, libId: disc ? disc.id : null, duration: w.duration || ev.duration || 0 });
+    const extId = `apple:${w.date}:${w.time}:${w.type}`, title = disc ? disc.title : w.type, ww = { ...w, title };
+    dates.add(w.date);
+    let ev = S.events.find(e => !kept.has(e.id) && e.extId === extId)
+      || S.events.find(e => !kept.has(e.id) && e.extId && sameSession(e, ww))
+      // séance prévue (routine ou programme) du même sport ce jour-là : elle devient la séance faite
+      || (disc && S.events.find(e => !kept.has(e.id) && !e.extId && !e.done && e.date === w.date && e.libId === disc.id));
+    if (!ev) { ev = { id: uid(), kind: "activite", cat: "sport", note: "", photos: [] }; S.events.push(ev); n++; }
+    Object.assign(ev, { extId, done: true, date: w.date, time: w.time || ev.time || "", title, libId: disc ? disc.id : null, duration: w.duration || ev.duration || 0 });
     if (w.distance && (!disc || discFields(disc).includes("distance"))) ev.distance = Math.round(w.distance * 100) / 100;
+    kept.add(ev.id);
   }
+  S.events = S.events.filter(e => !(e.extId && dates.has(e.date) && !kept.has(e.id) && !e.note && !(e.photos || []).length));
   return n;
 }
+// Nettoyage unique des doublons laissés par les anciens transferts
+function dedupImported(s) {
+  const keep = [];
+  for (const e of s.events) {
+    if (!e.extId) { keep.push(e); continue; }
+    const twin = keep.find(k => k.extId && sameSession(k, e));
+    if (!twin) { keep.push(e); continue; }
+    if ((e.note || (e.photos || []).length || e.goalId) && !(twin.note || (twin.photos || []).length || twin.goalId)) keep[keep.indexOf(twin)] = e;
+  }
+  s.events = keep;
+}
 const healthLine = d => [d.steps != null ? nf(d.steps) + " pas" : "", d.sleep != null ? f1(d.sleep) + " h de sommeil" : "", d.exApple != null ? d.exApple + " min d'exercice" : "", d.walkKm != null ? f1(d.walkKm) + " km" : "", d.water != null ? (d.water / 1000).toFixed(2).replace(".", ",") + " L d'eau" : "", d.activeKcal != null ? nf(d.activeKcal) + " kcal actives" : "", d.restKcal != null ? nf(d.restKcal) + " kcal au repos" : "", d.hrRest != null ? "FC repos " + d.hrRest : "", d.hrAvg != null ? "FC moy. " + d.hrAvg : "", d.hrMin != null || d.hrMax != null ? `FC ${d.hrMin ?? "?"}–${d.hrMax ?? "?"}` : "", d.hrv != null ? "VFC " + d.hrv + " ms" : ""].filter(Boolean).join(" · ");
+// Valeurs venant du raccourci : remplacées en entier à chaque transfert (l'eau, saisie à la main, est gardée si absente)
+const HKEYS = ["steps", "sleep", "exApple", "walkKm", "activeKcal", "restKcal", "hrRest", "hrAvg", "hrMin", "hrMax", "hrv", "skiKm", "swimKm", "bikeKm"];
+const kcalWarn = d => (Number(d.activeKcal) || 0) > 2500 || (Number(d.activeKcal) || 0) + (Number(d.restKcal) || 0) > 5000;
 function applyHealth({ days, workouts }) {
   const ks = Object.keys(days).sort(), nW = importWorkouts(workouts);
   let nP = 0;
-  for (const d of ks) { const o = { ...days[d] }; if ("period" in o) { const s = new Set(S.cycle.days); if (o.period && !s.has(d)) { s.add(d); nP++; } S.cycle.days = [...s].sort(); delete o.period; } if (Object.keys(o).length) setDay(d, o); }
+  for (const d of ks) { const o = { ...days[d] }; if ("period" in o) { const s = new Set(S.cycle.days); if (o.period && !s.has(d)) { s.add(d); nP++; } S.cycle.days = [...s].sort(); delete o.period; } if (Object.keys(o).length) { const cur = { ...getDay(d) }; for (const k of HKEYS) delete cur[k]; S.days[d] = { ...cur, ...o }; } }
   try { navigator.clipboard?.writeText("").catch(() => {}); } catch (err) {}
   closeSheet(); save();
   toast(`${ks.length ? (ks.length === 1 ? `Santé du ${fmtShort(ks[0])}` : `${ks.length} jours`) : ""}${ks.length && nW ? " et " : ""}${nW ? `${nW} séance${nW > 1 ? "s" : ""}` : ""} importé${(ks.length > 1 || nW > 1) ? "s" : ""}${nP ? ` · ${nP} jour${nP > 1 ? "s" : ""} de règles` : ""} ✓`);
@@ -2154,7 +2230,8 @@ document.addEventListener("input", e => {
     const { days, workouts } = parseHealth(e.target.value), ks = Object.keys(days).sort();
     const wtxt = workouts.length ? `<br>${workouts.length} séance${workouts.length > 1 ? "s" : ""} : ${workouts.slice(0, 4).map(w => `${esc(w.type)}${w.duration ? " " + fmtDur(w.duration) : ""}`).join(", ")}${workouts.length > 4 ? "…" : ""}` : "";
     $("#hprev").innerHTML = (!ks.length ? "" : ks.length === 1 ? `Pour le ${fmtLong(ks[0])} : ${healthLine(days[ks[0]])}`
-      : `<b>${ks.length} jours</b>, du ${fmtShort(ks[0])} ${ks[0].slice(0, 4)} au ${fmtShort(ks.at(-1))} ${ks.at(-1).slice(0, 4)}<br>Dernier jour : ${healthLine(days[ks.at(-1)])}`) + wtxt;
+      : `<b>${ks.length} jours</b>, du ${fmtShort(ks[0])} ${ks[0].slice(0, 4)} au ${fmtShort(ks.at(-1))} ${ks.at(-1).slice(0, 4)}<br>Dernier jour : ${healthLine(days[ks.at(-1)])}`) + wtxt
+      + (ks.some(d => kcalWarn(days[d])) ? `<br><b style="color:var(--orange)">⚠ Énergie très élevée (${ks.filter(d => kcalWarn(days[d])).map(fmtShort).join(", ")}).</b> Apple Santé additionne peut-être ta Suunto et ton iPhone/Apple Watch : tu pourras corriger la valeur dans l'Agenda, jour par jour.` : "");
   }
 });
 
@@ -2355,7 +2432,10 @@ document.addEventListener("submit", async e => {
       lib.push(it); ev.libId = it.id;
     }
     S.events.push(ev); closeSheet();
-    if (V.tab !== "agenda" || V.cat) { toast(`Ajouté au ${fmtShort(ev.date)}`); }
+    if (fd.repeat) {
+      const r = { id: uid(), title: ev.title, kind: ev.kind, cat: ev.cat, libId: ev.libId, time: ev.time, duration: ev.duration, wd: parse(ev.date).getDay(), start: ev.date };
+      S.routines.push(r); ev.routineId = r.id; applyRoutines(); toast(`Routine créée : ${ev.title}, ${routineLabel(r)}`);
+    } else if (V.tab !== "agenda" || V.cat) { toast(`Ajouté au ${fmtShort(ev.date)}`); }
     save();
   } else if (k === "askPin") { const r = PINRES; PINRES = null; r?.(form.p.value);
   } else if (k === "savePin") {
