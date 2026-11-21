@@ -182,6 +182,9 @@ img.noimg{visibility:hidden}
 @media(min-width:620px){.gal.g3{grid-template-columns:repeat(5,1fr)}}
 .galh{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:18px 2px 8px;font-weight:700;text-transform:capitalize}
 .galf{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ph.sel{outline:3px solid var(--hl);outline-offset:-3px}.ph.sel::before{content:"✓";position:absolute;top:6px;right:6px;z-index:2;width:22px;height:22px;border-radius:50%;background:var(--hl);color:#fff;font-size:13px;display:grid;place-items:center}
+.selbar{position:sticky;top:8px;z-index:30}
+.chip input{display:none}.chip:has(input:checked){background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .item{display:flex;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line);cursor:pointer}
 .item:last-child{border-bottom:0}
 .item .ibox{width:34px;height:34px}
@@ -613,7 +616,10 @@ async function mediaMaintenance() {
     else if (v && typeof v === "object") await walk(v); } };
   await walk(S);
   if (moved) save(false);
-  const used = new Set((JSON.stringify(S).match(/"[mv]:[a-z0-9]+"/g) || []).map(s => s.slice(3, -1)));
+  // étiquettes de photos supprimées : retirées d'abord (sinon elles garderaient les fichiers en vie)
+  const { ptags, ...rest } = S, refs = new Set(JSON.stringify(rest).match(/"[mv]:[a-z0-9]+"/g) || []);
+  for (const k of Object.keys(ptags || {})) if (!refs.has(`"${k}"`)) delete S.ptags[k];
+  const used = new Set([...refs].map(s => s.slice(3, -1)));
   const dead = (await MDB.keys()).filter(k => { const id = String(k).split("#")[0].replace(/t$/, ""); return !used.has(id) && !used.has(String(k).split("#")[0]); });
   if (dead.length) await MDB.del(dead);
 }
@@ -628,7 +634,7 @@ function defaults() {
     v: 1,
     profile: { name: "", birth: "", height: "", weight: "", goalSteps: 8000, goalSleep: 8, goalTraining: 30, goalWater: 2000, cycleLen: 28 },
     settings: { theme: "dark", autoLock: 5 },
-    days: {}, todos: [], events: [], routines: [], routineSkip: [], gallery: [], cycle: { days: [] }, library: {}, savoir: {},
+    days: {}, todos: [], events: [], routines: [], routineSkip: [], gallery: [], ptags: {}, people: [], cycle: { days: [] }, library: {}, savoir: {},
     life: { projects: [], wishes: [], strengths: [], weaknesses: [], evolutions: [] }, health: { meals: [], goals: [], shop: [] }, media: [], learn: { fiches: [] }, travel: { trips: [], wishes: [], moments: [] },
   };
 }
@@ -1259,7 +1265,7 @@ function viewDisc() {
   const sum = k => done.reduce((a, e) => a + (Number(e[k]) || 0), 0);
   const photos = [...(it.photos || []).map((src, i) => ({ src, i, e: null })), ...done.flatMap(e => (e.photos || []).map((src, i) => ({ src, i, e })))];
   const years = [...new Set(photos.filter(p => p.e).map(p => p.e.date.slice(0, 4)))].sort().reverse();
-  let gal = photos.filter(p => V.galYear === "all" || (p.e && p.e.date.startsWith(V.galYear)));
+  let gal = photos.filter(p => (V.galYear === "all" || (p.e && p.e.date.startsWith(V.galYear))) && hasTag(p.src, V.galTag || "all"));
   gal.sort((a, b) => { const da = a.e?.date || "0", db = b.e?.date || "0"; return V.galSort === "desc" ? db.localeCompare(da) : da.localeCompare(db); });
   const sorted = it.goals.slice().sort((a, b) => a.done - b.done);
   return `
@@ -1298,6 +1304,7 @@ function viewDisc() {
   <div class="card"><div class="sec-h"><h2>${ico("camera")} Galerie</h2>
       <div class="seg"><button class="${V.galSort === "desc" ? "on" : ""}" data-act="galSort" data-k="desc">Récentes</button><button class="${V.galSort === "asc" ? "on" : ""}" data-act="galSort" data-k="asc">Anciennes</button></div></div>
     ${years.length > 1 ? `<div class="row wrap" style="gap:6px;margin:6px 0 12px"><span class="chip ${V.galYear === "all" ? "on" : ""}" data-act="galYear" data-k="all">Toutes</span>${years.map(y => `<span class="chip ${V.galYear === y ? "on" : ""}" data-act="galYear" data-k="${y}">${y}</span>`).join("")}</div>` : ""}
+    ${tagChips(photos.map(p => p.src), V.galTag || "all", "galTag")}
     ${gal.length ? `<div class="gal">${gal.map(p => `<div class="ph" data-act="viewPhoto" data-id="${p.e ? p.e.id : ""}" data-i="${p.i}"><img src="${p.src}" alt="" loading="lazy"><div class="cap">${p.e ? `<b>${fmtShort(p.e.date)} ${p.e.date.slice(0, 4)}</b>${p.e.place ? esc(p.e.place) : ""}` : `<b>${c.id === "mecatro" ? "Projet" : "Inspiration"}</b>`}</div></div>`).join("")}</div>`
       : `<div class="empty">Les photos de tes ${L.one.toLowerCase()}s apparaîtront ici, avec leur date et leur lieu.</div>`}
   </div>`;
@@ -1692,7 +1699,7 @@ function entDetail(kind, o) {
     ${o.note ? `<p style="white-space:pre-line;line-height:1.5">${esc(o.note)}</p>` : ""}
     ${o.story ? `<h3 style="margin-top:14px">Mon récit</h3><p style="white-space:pre-line;margin-top:0">${esc(o.story)}</p>` : ""}
     ${(o.links || []).length ? `<div class="row wrap" style="gap:6px;margin-top:10px">${linkList(o.links)}</div>` : ""}
-    ${(o.photos || []).length ? `<div class="gal" style="margin-top:12px">${o.photos.map(src => `<div class="ph"><img src="${src}" alt=""></div>`).join("")}</div>` : ""}
+    ${(o.photos || []).length ? `<div style="margin-top:12px">${tagChips(o.photos, V.galTag || "all", "entTag", `data-kind="${kind}" data-id="${o.id}"`)}</div><div class="gal">${o.photos.filter(src => hasTag(src, V.galTag || "all")).map(src => `<div class="ph" data-act="photoSrc" data-src="${src}"><img src="${src}" alt=""></div>`).join("")}</div>` : ""}
     ${ev && (ev.photos || []).length ? `<h3 style="margin-top:14px">Le résultat</h3><div class="gal">${ev.photos.map(src => `<div class="ph"><img src="${src}" alt=""></div>`).join("")}</div>` : ""}
     <div class="row wrap" style="margin-top:16px;gap:8px">
       ${kind === "goal" && !o.done ? `<button class="btn hl" data-act="goalDone" data-id="${o.id}">${ico("target")} C'est réalisé !</button>` : ""}
@@ -1731,7 +1738,31 @@ function viewTravel() {
    séances, voyages, moments, projets… et celles importées en masse
    (S.gallery) en attendant d'être rangées dans une activité.
    ========================================================= */
-const GF = { act: "all", year: "all", place: "all", n: 90 };
+const GF = { act: "all", year: "all", place: "all", tag: "all", n: 90 };
+// Étiquettes de photos : S.ptags["m:id"] = { t: ["Paysage", …], p: ["Léa", …] }
+const PTYPES = ["Paysage", "Activité", "Personnes", "Famille", "Amis", "Animaux"];
+const ptag = src => S.ptags[src] || { t: [], p: [] };
+const hasTag = (src, k) => k === "all" || (k.startsWith("p:") ? ptag(src).p.includes(k.slice(2)) : ptag(src).t.includes(k.slice(2)));
+function addTags(src, t = [], p = []) {
+  const o = S.ptags[src] = S.ptags[src] || { t: [], p: [] };
+  for (const x of t) if (!o.t.includes(x)) o.t.push(x);
+  for (const x of p) if (!o.p.includes(x)) o.p.push(x);
+  for (const x of p) if (!S.people.includes(x)) S.people.push(x);
+}
+// Rangée de filtres par étiquette, pour une liste de photos
+function tagChips(srcs, cur, act, extra = "") {
+  const t = PTYPES.filter(x => srcs.some(s => ptag(s).t.includes(x))), p = S.people.filter(x => srcs.some(s => ptag(s).p.includes(x)));
+  if (!t.length && !p.length) return "";
+  const chip = (k, lab) => `<span class="chip ${cur === k ? "on" : ""}" data-act="${act}" data-k="${k}" ${extra}>${lab}</span>`;
+  return `<div class="row wrap" style="gap:6px;margin:6px 0 12px">${chip("all", "Tout")}${t.map(x => chip("t:" + x, esc(x))).join("")}${p.map(x => chip("p:" + x, "👤 " + esc(x))).join("")}</div>`;
+}
+// Éditeur d'étiquettes d'une photo (dans la fenêtre photo)
+function tagEditor(src) {
+  const o = ptag(src);
+  return `<label>Sur cette photo</label><div class="row wrap" style="gap:6px">${PTYPES.map(x => `<span class="chip ${o.t.includes(x) ? "on" : ""}" data-act="pTag" data-src="${src}" data-k="t" data-v="${esc(x)}">${esc(x)}</span>`).join("")}</div>
+    <label>Personnes</label><div class="row wrap" style="gap:6px">${S.people.map(x => `<span class="chip ${o.p.includes(x) ? "on" : ""}" data-act="pTag" data-src="${src}" data-k="p" data-v="${esc(x)}">${esc(x)}</span>`).join("")}</div>
+    <form class="subform" data-form="addPerson" data-src="${src}" style="margin-top:8px;grid-template-columns:1fr auto"><input name="n" placeholder="Ajouter un prénom…" autocomplete="off" style="grid-column:auto"><button class="btn" aria-label="Ajouter">${ico("plus")}</button></form>`;
+}
 const LOOSE = "__loose";
 function galleryItems() {
   const out = [], add = (arr, o) => (arr || []).forEach((src, i) => src && out.push({ src, ...o, i }));
@@ -1740,17 +1771,17 @@ function galleryItems() {
   for (const m of S.travel.moments) if (m.done) add(m.photos, { date: m.doneDate || "", place: m.donePlace || m.place || "", act: m.title, ref: "moment", id: m.id });
   for (const p of S.life.projects) add(p.photos, { date: "", place: "", act: "Projet · " + p.title, ref: "life", id: p.id });
   for (const [cid, list] of Object.entries(S.library)) for (const it of list || []) if (it.kind === "discipline") add(it.photos, { date: "", place: "", act: it.title, ref: "lib", id: it.id });
-  for (const g of S.gallery) out.push({ src: g.src, date: g.date || "", place: g.place || "", act: "", ref: "loose", id: g.id, gps: g.gps });
+  for (const g of S.gallery) out.push({ src: g.src, date: g.date || "", place: g.place || "", act: g.album === "famille" ? "Famille" : "", album: g.album || "", ref: "loose", id: g.id, gps: g.gps });
   return out;
 }
 const monthName = ym => ym ? `${MOIS[Number(ym.slice(5, 7)) - 1]} ${ym.slice(0, 4)}` : "Sans date";
 function viewGallery() {
-  const all = galleryItems(), nLoose = all.filter(x => x.ref === "loose").length;
+  const all = galleryItems(), nLoose = all.filter(x => x.ref === "loose" && !x.album).length;
   const acts = [...new Set(all.map(x => x.act).filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr"));
   const years = [...new Set(all.map(x => x.date.slice(0, 4)).filter(Boolean))].sort().reverse();
   const places = [...new Set(all.map(x => x.place.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr"));
-  let list = all.filter(x => (GF.act === "all" || (GF.act === LOOSE ? x.ref === "loose" : x.act === GF.act))
-    && (GF.year === "all" || x.date.startsWith(GF.year)) && (GF.place === "all" || x.place.trim() === GF.place));
+  let list = all.filter(x => (GF.act === "all" || (GF.act === LOOSE ? x.ref === "loose" && !x.album : x.act === GF.act))
+    && (GF.year === "all" || x.date.startsWith(GF.year)) && (GF.place === "all" || x.place.trim() === GF.place) && hasTag(x.src, GF.tag));
   list.sort((a, b) => (b.date || "0").localeCompare(a.date || "0"));
   V.galList = list;
   const shown = list.slice(0, GF.n), byDay = GF.act === LOOSE;
@@ -1763,39 +1794,55 @@ function viewGallery() {
       html += `<div class="galh"><span>${byDay ? (g ? fmtLong(g) : "Sans date") : monthName(g)} <span class="faint" style="font-weight:400">· ${n}</span></span>${byDay ? `<button class="btn sm hl" data-act="galRanger" data-d="${g}">Ranger</button>` : ""}</div><div class="gal g3">`;
       cur = g;
     }
-    html += `<div class="ph" data-act="galOpen" data-i="${k}"><img src="${x.src}" alt="" loading="lazy"></div>`;
+    html += `<div class="ph ${V.galSel?.has(x.src) ? "sel" : ""}" data-act="galOpen" data-i="${k}"><img src="${x.src}" alt="" loading="lazy"></div>`;
   });
   if (cur !== null) html += "</div>";
   return `
   <div class="row between wrap"><h1>Galerie</h1>
-    <label class="btn sm hl filebtn">${ico("plus")} Importer<input type="file" accept="image/*,video/*" multiple data-ch="galImport" hidden></label></div>
+    <div class="row" style="gap:6px">${all.length ? `<button class="btn sm ghost" data-act="galSelect">Sélectionner</button>` : ""}<button class="btn sm hl" data-act="galImportSheet">${ico("plus")} Importer</button></div></div>
+  ${V.galSel ? `<div class="card selbar row between"><b id="selN">${V.galSel.size} sélectionnée${V.galSel.size > 1 ? "s" : ""}</b><div class="row" style="gap:6px"><button class="btn sm ghost" data-act="galSelect">Annuler</button><button class="btn sm hl" data-act="galBulk">Étiqueter</button></div></div>` : ""}
   <p class="sub" style="margin:6px 2px 0">${all.length} photo${all.length > 1 ? "s" : ""} et vidéos, chiffrées sur ton iPhone.${nLoose ? ` <b style="color:var(--hl);cursor:pointer" data-act="galF" data-k="act" data-v="${LOOSE}">${nLoose} à ranger</b>` : ""}</p>
   <div class="card">
     <div class="galf">
       <div><label>Activité</label><select data-ch="galF" data-k="act"><option value="all">Toutes</option>${nLoose ? `<option value="${LOOSE}" ${GF.act === LOOSE ? "selected" : ""}>À ranger (${nLoose})</option>` : ""}${acts.map(a => `<option ${GF.act === a ? "selected" : ""}>${esc(a)}</option>`).join("")}</select></div>
       <div><label>Lieu</label><select data-ch="galF" data-k="place"><option value="all">Tous</option>${places.map(a => `<option ${GF.place === a ? "selected" : ""}>${esc(a)}</option>`).join("")}</select></div>
     </div>
+    ${S.people.length || Object.keys(S.ptags).length ? `<div style="margin-top:8px"><label>Sur la photo</label><select data-ch="galF" data-k="tag"><option value="all">Tout</option><optgroup label="Type">${PTYPES.map(x => `<option value="t:${esc(x)}" ${GF.tag === "t:" + x ? "selected" : ""}>${esc(x)}</option>`).join("")}</optgroup>${S.people.length ? `<optgroup label="Personnes">${S.people.map(x => `<option value="p:${esc(x)}" ${GF.tag === "p:" + x ? "selected" : ""}>${esc(x)}</option>`).join("")}</optgroup>` : ""}</select></div>` : ""}
     ${years.length ? `<div class="row wrap" style="gap:6px;margin-top:12px"><span class="chip ${GF.year === "all" ? "on" : ""}" data-act="galF" data-k="year" data-v="all">Toutes les années</span>${years.map(y => `<span class="chip ${GF.year === y ? "on" : ""}" data-act="galF" data-k="year" data-v="${y}">${y}</span>`).join("")}</div>` : ""}
   </div>
   ${list.length ? html + (list.length > GF.n ? `<div class="row" style="margin-top:14px"><span class="grow"></span><button class="btn ghost" data-act="galMore">Voir plus (${list.length - GF.n} restantes)</button><span class="grow"></span></div>` : "")
     : `<div class="card"><div class="empty">${all.length ? "Aucune photo avec ces filtres." : "Importe tes photos : celles prises le jour d'une séance s'y rangent toutes seules, les autres t'attendent dans « À ranger »."}</div></div>`}`;
 }
 function galPhotoSheet(x) {
+  V.curPhoto = x;
   const ev = x.ref === "ev" ? S.events.find(e => e.id === x.id) : null;
   const map = x.gps ? `https://maps.apple.com/?ll=${x.gps[0]},${x.gps[1]}&q=Photo` : "";
   openSheet(`<div class="row between"><h2 style="margin:0;text-transform:capitalize">${x.date ? fmtLong(x.date) : "Sans date"}</h2><button class="x" data-act="closeSheet">×</button></div>
     <div class="faint" style="margin-top:4px">${x.act ? esc(x.act) : "À ranger"}${x.place ? " · " + esc(x.place) : ""}${map ? ` · <a href="${map}" target="_blank" rel="noopener">voir le lieu sur Plans</a>` : ""}</div>
     ${mediaView(x.src)}
     ${ev ? `<div class="stat-row" style="margin-top:10px">${seanceStats(ev)}</div>` : ""}
+    ${tagEditor(x.src)}
     <div class="row wrap" style="margin-top:14px"><span class="grow"></span>
-      ${x.ref === "loose" ? `<button class="btn ghost" data-act="galDel" data-id="${x.id}">Supprimer</button><button class="btn" data-act="galRanger" data-d="${x.date}" data-id="${x.id}">Ranger</button>` : ""}
+      ${x.ref === "loose" ? `<button class="btn ghost" data-act="galDel" data-id="${x.id}">Supprimer</button><button class="btn" data-act="galRanger" data-d="${x.date}" data-id="${x.id}">${x.album ? "Mettre dans une activité" : "Ranger"}</button>` : ""}
       ${ev && findItem(ev.libId)[1]?.kind === "discipline" ? `<button class="btn ghost" data-act="editSeance" data-id="${ev.id}">Voir la séance</button>` : ""}</div>`);
 }
+function bulkTagSheet() {
+  const n = V.galSel.size;
+  openSheet(`<form data-form="bulkTag">
+    <div class="row between"><h2 style="margin:0">Étiqueter ${n} photo${n > 1 ? "s" : ""}</h2><button type="button" class="x" data-act="closeSheet">×</button></div>
+    <label>Sur ces photos</label>
+    <div class="row wrap" style="gap:6px">${PTYPES.map(x => `<label class="chip"><input type="checkbox" name="t" value="${esc(x)}">${esc(x)}</label>`).join("")}</div>
+    <label>Personnes</label>
+    ${S.people.length ? `<div class="row wrap" style="gap:6px">${S.people.map(x => `<label class="chip"><input type="checkbox" name="p" value="${esc(x)}">${esc(x)}</label>`).join("")}</div>` : ""}
+    <input name="np" placeholder="${S.people.length ? "Autres prénoms" : "Prénoms"}, séparés par des virgules" autocomplete="off" style="margin-top:8px">
+    <label class="row" style="gap:8px;color:var(--text);margin-top:12px"><input type="checkbox" name="fam" style="width:auto"> Mettre aussi dans l'album Famille (photos pas encore rangées)</label>
+    <div class="row" style="margin-top:16px"><span class="grow"></span><button class="btn">Ajouter</button></div></form>`);
+}
 function rangerSheet(d, oneId) {
-  const n = oneId ? 1 : S.gallery.filter(g => (g.date || "") === d).length;
+  const n = oneId ? 1 : S.gallery.filter(g => (g.date || "") === d && !g.album).length;
   const evs = d ? S.events.filter(e => e.date === d && e.kind === "activite") : [];
   const libs = CATS.map(c => ({ c, l: (S.library[c.id] || []).filter(x => x.kind === "discipline") })).filter(x => x.l.length);
-  const gps = (oneId ? S.gallery.filter(g => g.id === oneId) : S.gallery.filter(g => (g.date || "") === d)).find(g => g.gps)?.gps;
+  const gps = (oneId ? S.gallery.filter(g => g.id === oneId) : S.gallery.filter(g => (g.date || "") === d && !g.album)).find(g => g.gps)?.gps;
   openSheet(`<form data-form="galRanger" data-d="${d}" data-id="${oneId || ""}">
     <div class="row between"><h2 style="margin:0">Ranger ${n > 1 ? `ces ${n} photos` : "cette photo"}</h2><button type="button" class="x" data-act="closeSheet">×</button></div>
     <p class="sub">Elles rejoignent la séance de ce jour-là : tu les retrouveras dans l'activité, avec la date et le lieu.</p>
@@ -1809,7 +1856,7 @@ function rangerSheet(d, oneId) {
 }
 function galRangerSave(form) {
   const fd = Object.fromEntries(new FormData(form).entries()), d0 = form.dataset.d, one = form.dataset.id, d = fd.date;
-  const moving = S.gallery.filter(g => one ? g.id === one : (g.date || "") === d0);
+  const moving = S.gallery.filter(g => one ? g.id === one : (g.date || "") === d0 && !g.album);
   if (!moving.length || !d) return;
   let ev;
   if (fd.act.startsWith("ev:")) ev = S.events.find(e => e.id === fd.act.slice(3));
@@ -1855,21 +1902,37 @@ async function fileMeta(f) {
   return r;
 }
 // Import en masse : chaque photo va dans la séance de son jour s'il y en a une seule, sinon dans « À ranger »
-async function galImport(files) {
+function galImportSheet() {
+  openSheet(`<form data-form="noop">
+    <div class="row between"><h2 style="margin:0">Importer des photos</h2><button type="button" class="x" data-act="closeSheet">×</button></div>
+    <label>Où les ranger ?</label>
+    <select name="mode"><option value="auto">Selon la date : dans la séance du jour, sinon « À ranger »</option><option value="famille">Album Famille</option></select>
+    <label>Sur ces photos (facultatif)</label>
+    <div class="row wrap" style="gap:6px">${PTYPES.map(x => `<label class="chip"><input type="checkbox" name="t" value="${esc(x)}">${esc(x)}</label>`).join("")}</div>
+    <label>Personnes (facultatif)</label>
+    ${S.people.length ? `<div class="row wrap" style="gap:6px">${S.people.map(x => `<label class="chip"><input type="checkbox" name="p" value="${esc(x)}">${esc(x)}</label>`).join("")}</div>` : ""}
+    <input name="np" placeholder="${S.people.length ? "Autres prénoms" : "Prénoms"}, séparés par des virgules" autocomplete="off" style="margin-top:8px">
+    <div class="faint" style="margin-top:8px">Astuce : dans l'écran de choix des photos, touche « Options » et active la position pour garder le lieu.</div>
+    <div class="row" style="margin-top:16px"><span class="grow"></span><label class="btn hl filebtn">${ico("camera")} Choisir les photos<input type="file" accept="image/*,video/*" multiple data-ch="galImport" hidden></label></div></form>`);
+}
+const formTags = form => { const fd = new FormData(form); return { mode: fd.get("mode") || "auto", t: fd.getAll("t"), p: [...fd.getAll("p"), ...String(fd.get("np") || "").split(",").map(x => x.trim()).filter(Boolean)] }; };
+async function galImport(files, opt = { mode: "auto", t: [], p: [] }) {
   const bar = progressToast(); let inEv = 0, loose = 0, fail = 0;
+  const famille = opt.mode === "famille", t = famille && !opt.t.includes("Famille") ? [...opt.t, "Famille"] : opt.t;
   for (let i = 0; i < files.length; i++) {
     const f = files[i];
     bar(`${i + 1}/${files.length} · ${f.type.startsWith("video/") ? "Vidéo chiffrée…" : "Photo…"}`, i / files.length);
     try {
       const meta = await fileMeta(f), ref = f.type.startsWith("video/") ? await storeVideo(f) : await storeImage(f);
-      const evs = meta.date ? S.events.filter(e => e.date === meta.date && e.kind === "activite" && (e.done || e.date <= today())) : [];
+      const evs = meta.date && !famille ? S.events.filter(e => e.date === meta.date && e.kind === "activite" && (e.done || e.date <= today())) : [];
       if (evs.length === 1) { evs[0].photos = [...(evs[0].photos || []), ref]; inEv++; }
-      else { S.gallery.push({ id: uid(), src: ref, date: meta.date || "", place: "", gps: meta.gps || null }); loose++; }
+      else { S.gallery.push({ id: uid(), src: ref, date: meta.date || "", place: "", gps: meta.gps || null, ...(famille ? { album: "famille" } : {}) }); loose++; }
+      if (t.length || opt.p.length) addTags(ref, t, opt.p);
     } catch (err) { fail++; if (/quota/i.test(String(err))) { toast("Plus assez d'espace sur l'iPhone"); break; } }
     if (i % 20 === 19) await persist();
   }
   bar(null); save();
-  toast(`${inEv + loose} importée${inEv + loose > 1 ? "s" : ""}${inEv ? ` · ${inEv} rangée${inEv > 1 ? "s" : ""} dans tes séances` : ""}${loose ? ` · ${loose} à ranger` : ""}${fail ? ` · ${fail} illisible${fail > 1 ? "s" : ""}` : ""}`);
+  toast(`${inEv + loose} importée${inEv + loose > 1 ? "s" : ""}${inEv ? ` · ${inEv} rangée${inEv > 1 ? "s" : ""} dans tes séances` : ""}${loose ? (famille ? ` dans l'album Famille` : ` · ${loose} à ranger`) : ""}${fail ? ` · ${fail} illisible${fail > 1 ? "s" : ""}` : ""}`);
 }
 
 /* =========================================================
@@ -2198,7 +2261,20 @@ const ACT = {
   galSort: el => { V.galSort = el.dataset.k; render(); },
   galF: el => { GF[el.dataset.k] = el.dataset.v; GF.n = 90; if (V.tab !== "galerie") V.tab = "galerie"; render(); },
   galMore: () => { GF.n += 90; render(); },
-  galOpen: el => { const x = V.galList?.[Number(el.dataset.i)]; if (x) galPhotoSheet(x); },
+  galTag: el => { V.galTag = el.dataset.k; render(); },
+  entTag: el => { V.galTag = el.dataset.k; const o = findEnt(el.dataset.kind, el.dataset.id); if (o) openSheet(entDetail(el.dataset.kind, o)); },
+  photoSrc: el => { const x = galleryItems().find(y => y.src === el.dataset.src); if (x) galPhotoSheet(x); },
+  pTag: el => { const src = el.dataset.src, o = S.ptags[src] = S.ptags[src] || { t: [], p: [] }, l = o[el.dataset.k], v = el.dataset.v, i = l.indexOf(v);
+    if (i >= 0) l.splice(i, 1); else l.push(v); el.classList.toggle("on", i < 0); save(false); },
+  galSelect: () => { V.galSel = V.galSel ? null : new Set(); render(); },
+  galBulk: () => { if (!V.galSel?.size) return toast("Touche d'abord des photos pour les sélectionner"); bulkTagSheet(); },
+  galImportSheet: () => galImportSheet(),
+  galOpen: el => {
+    const x = V.galList?.[Number(el.dataset.i)]; if (!x) return;
+    if (!V.galSel) return galPhotoSheet(x);
+    if (V.galSel.has(x.src)) V.galSel.delete(x.src); else V.galSel.add(x.src);
+    el.classList.toggle("sel", V.galSel.has(x.src)); const n = V.galSel.size; $("#selN").textContent = `${n} sélectionnée${n > 1 ? "s" : ""}`;
+  },
   galRanger: el => rangerSheet(el.dataset.d || "", el.dataset.id || ""),
   galDel: async el => { if (!(await ask("Supprimer cette photo de l'appli ? (l'original sur ton disque dur n'est pas touché)", "Supprimer"))) return; S.gallery = S.gallery.filter(g => g.id !== el.dataset.id); closeSheet(); save(); },
   galYear: el => { V.galYear = el.dataset.k; render(); },
@@ -2210,6 +2286,7 @@ const ACT = {
       ${ev.place ? `<div class="faint row" style="gap:4px;margin-top:4px">${ico("pin")} ${esc(ev.place)}</div>` : ""}
       ${mediaView(src)}
       <div class="stat-row" style="margin-top:10px">${seanceStats(ev)}</div>
+      ${tagEditor(src)}
       <div class="row" style="margin-top:14px"><span class="grow"></span><button class="btn ghost" data-act="editSeance" data-id="${ev.id}">Voir la séance</button></div>`);
   },
   agView: el => { V.agView = el.dataset.k; V.cursor = V.sel; render(); },
@@ -2376,7 +2453,7 @@ const healthLine = d => [d.steps != null ? nf(d.steps) + " pas" : "", d.sleep !=
 const HKEYS = ["steps", "sleep", "exApple", "walkKm", "activeKcal", "restKcal", "hrRest", "hrAvg", "hrMin", "hrMax", "hrv", "skiKm", "swimKm", "bikeKm"];
 // Au-delà, une énergie « au repos » ne peut pas être en kcal : c'est une valeur en kilojoules
 const KJ_REST = 4000;
-const APP_VERSION = "2026-11-21 · galerie";
+const APP_VERSION = "2026-11-21 · étiquettes photos";
 const kcalWarn = d => (Number(d.activeKcal) || 0) > 2500 || (Number(d.activeKcal) || 0) + (Number(d.restKcal) || 0) > 5000;
 function applyHealth({ days, workouts }) {
   const ks = Object.keys(days).sort(), nW = importWorkouts(workouts);
@@ -2465,7 +2542,7 @@ document.addEventListener("change", async e => {
     $("#sheet .sheet").innerHTML = itemForm(draftItem);
   }
   else if (k === "ficheFile") { const f = el.files[0]; if (f) el.closest("form").data.value = await f.text(); }
-  else if (k === "galImport") { const files = [...el.files]; el.value = ""; if (files.length) await galImport(files); }
+  else if (k === "galImport") { const files = [...el.files], form = el.closest("form"), opt = form ? formTags(form) : undefined; el.value = ""; if (!files.length) return; closeSheet(); await galImport(files, opt); }
   else if (k === "galF") { GF[el.dataset.k] = el.value; GF.n = 90; render(); }
   else if (k === "seancePhotos") {
     const files = [...el.files]; if (!files.length) return;
@@ -2581,6 +2658,13 @@ document.addEventListener("submit", async e => {
     if (draftSeance.goalId) { const g = (findItem(ev.libId)[1]?.goals || []).find(x => x.id === draftSeance.goalId); if (g) { g.done = true; g.seanceId = ev.id; ev.goalId = g.id; } }
     closeSheet(); save(); { const one = (LABELS[ev.cat] || LABELS.sport).one; toast(ev.done ? `${one} enregistrée` : `${one} planifiée dans l'agenda`); }
   } else if (k === "galRanger") { galRangerSave(form);
+  } else if (k === "addPerson") {
+    const n = form.n.value.trim(); if (!n) return; addTags(form.dataset.src, [], [n]); save(false);
+    if (V.curPhoto?.src === form.dataset.src) galPhotoSheet(V.curPhoto); else { const x = galleryItems().find(y => y.src === form.dataset.src); if (x) galPhotoSheet(x); }
+  } else if (k === "bulkTag") {
+    const o = formTags(form), fam = form.fam.checked;
+    for (const src of V.galSel) { addTags(src, fam && !o.t.includes("Famille") ? [...o.t, "Famille"] : o.t, o.p); if (fam) { const g = S.gallery.find(y => y.src === src); if (g && !g.album) g.album = "famille"; } }
+    const n = V.galSel.size; V.galSel = null; closeSheet(); save(); toast(`${n} photo${n > 1 ? "s" : ""} étiquetée${n > 1 ? "s" : ""}`);
   } else if (k === "saveStat") {
     const v = form.v.value; setDay(today(), { [form.dataset.k]: v === "" ? null : Number(v) }); closeSheet(); save();
   } else if (k === "saveItem") {
