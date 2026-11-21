@@ -178,6 +178,10 @@ img.noimg{visibility:hidden}
 .ph img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
 .ph .cap{position:absolute;left:0;right:0;bottom:0;padding:22px 10px 8px;background:linear-gradient(transparent,rgba(0,0,0,.75));color:#fff;font-size:12px}
 .ph .cap b{display:block;font-size:13px}
+.gal.g3{grid-template-columns:repeat(3,1fr);gap:4px}.gal.g3 .ph{border-radius:8px}
+@media(min-width:620px){.gal.g3{grid-template-columns:repeat(5,1fr)}}
+.galh{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:18px 2px 8px;font-weight:700;text-transform:capitalize}
+.galf{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .item{display:flex;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line);cursor:pointer}
 .item:last-child{border-bottom:0}
 .item .ibox{width:34px;height:34px}
@@ -223,7 +227,7 @@ svg.big{width:34px;height:34px}
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:40;background:color-mix(in srgb,var(--card) 88%,transparent);
   backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-top:1px solid var(--line);
   padding:6px 8px calc(6px + env(safe-area-inset-bottom))}
-nav.tabs .in{max-width:520px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr)}
+nav.tabs .in{max-width:520px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
 nav.tabs button{border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--muted);padding:6px 0;cursor:pointer}
 nav.tabs button svg{width:24px;height:24px}
 nav.tabs button.on{color:var(--hl)}
@@ -624,7 +628,7 @@ function defaults() {
     v: 1,
     profile: { name: "", birth: "", height: "", weight: "", goalSteps: 8000, goalSleep: 8, goalTraining: 30, goalWater: 2000, cycleLen: 28 },
     settings: { theme: "dark", autoLock: 5 },
-    days: {}, todos: [], events: [], routines: [], routineSkip: [], cycle: { days: [] }, library: {}, savoir: {},
+    days: {}, todos: [], events: [], routines: [], routineSkip: [], gallery: [], cycle: { days: [] }, library: {}, savoir: {},
     life: { projects: [], wishes: [], strengths: [], weaknesses: [], evolutions: [] }, health: { meals: [], goals: [], shop: [] }, media: [], learn: { fiches: [] }, travel: { trips: [], wishes: [], moments: [] },
   };
 }
@@ -783,16 +787,17 @@ const ICONS = {
   agenda: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
   stats: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 20V11M12 20V4M19 20v-6"/></svg>',
   profil: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>',
+  galerie: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg>',
 };
 function renderTabs() {
-  const T = [["home", "Accueil"], ["agenda", "Agenda"], ["stats", "Stats"], ["profil", "Profil"]];
+  const T = [["home", "Accueil"], ["agenda", "Agenda"], ["galerie", "Galerie"], ["stats", "Stats"], ["profil", "Profil"]];
   $("#tabs").innerHTML = `<div class="in">${T.map(([k, n]) => `<button data-act="tab" data-k="${k}" class="${V.tab === k && !V.cat ? "on" : ""}">${ICONS[k]}${n}</button>`).join("")}</div>`;
 }
 function render() {
   if (!S) return;
   document.documentElement.dataset.theme = S.settings.theme;
   const y = window.scrollY;
-  $("#main").innerHTML = V.cat ? (V.disc ? viewDisc() : viewCat()) : ({ home: viewHome, agenda: viewAgenda, stats: viewStats, profil: viewProfil })[V.tab]();
+  $("#main").innerHTML = V.cat ? (V.disc ? viewDisc() : viewCat()) : ({ home: viewHome, agenda: viewAgenda, galerie: viewGallery, stats: viewStats, profil: viewProfil })[V.tab]();
   renderTabs();
   window.scrollTo(0, y);
   if (V.tab === "profil" && !V.cat) fillStorage();
@@ -1721,6 +1726,153 @@ function viewTravel() {
 }
 
 /* =========================================================
+   9 bis. VUE : GALERIE
+   Toutes les photos et vidéos de l'appli au même endroit : celles des
+   séances, voyages, moments, projets… et celles importées en masse
+   (S.gallery) en attendant d'être rangées dans une activité.
+   ========================================================= */
+const GF = { act: "all", year: "all", place: "all", n: 90 };
+const LOOSE = "__loose";
+function galleryItems() {
+  const out = [], add = (arr, o) => (arr || []).forEach((src, i) => src && out.push({ src, ...o, i }));
+  for (const e of S.events) add(e.photos, { date: e.date || "", place: e.place || "", act: e.title, ref: "ev", id: e.id });
+  for (const t of S.travel.trips) add(t.photos, { date: t.start || "", place: t.place || "", act: "Voyage · " + t.title, ref: "trip", id: t.id });
+  for (const m of S.travel.moments) if (m.done) add(m.photos, { date: m.doneDate || "", place: m.donePlace || m.place || "", act: m.title, ref: "moment", id: m.id });
+  for (const p of S.life.projects) add(p.photos, { date: "", place: "", act: "Projet · " + p.title, ref: "life", id: p.id });
+  for (const [cid, list] of Object.entries(S.library)) for (const it of list || []) if (it.kind === "discipline") add(it.photos, { date: "", place: "", act: it.title, ref: "lib", id: it.id });
+  for (const g of S.gallery) out.push({ src: g.src, date: g.date || "", place: g.place || "", act: "", ref: "loose", id: g.id, gps: g.gps });
+  return out;
+}
+const monthName = ym => ym ? `${MOIS[Number(ym.slice(5, 7)) - 1]} ${ym.slice(0, 4)}` : "Sans date";
+function viewGallery() {
+  const all = galleryItems(), nLoose = all.filter(x => x.ref === "loose").length;
+  const acts = [...new Set(all.map(x => x.act).filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr"));
+  const years = [...new Set(all.map(x => x.date.slice(0, 4)).filter(Boolean))].sort().reverse();
+  const places = [...new Set(all.map(x => x.place.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr"));
+  let list = all.filter(x => (GF.act === "all" || (GF.act === LOOSE ? x.ref === "loose" : x.act === GF.act))
+    && (GF.year === "all" || x.date.startsWith(GF.year)) && (GF.place === "all" || x.place.trim() === GF.place));
+  list.sort((a, b) => (b.date || "0").localeCompare(a.date || "0"));
+  V.galList = list;
+  const shown = list.slice(0, GF.n), byDay = GF.act === LOOSE;
+  let html = "", cur = null;
+  shown.forEach((x, k) => {
+    const g = byDay ? x.date : x.date.slice(0, 7);
+    if (g !== cur) {
+      if (cur !== null) html += "</div>";
+      const n = list.filter(y => (byDay ? y.date : y.date.slice(0, 7)) === g).length;
+      html += `<div class="galh"><span>${byDay ? (g ? fmtLong(g) : "Sans date") : monthName(g)} <span class="faint" style="font-weight:400">· ${n}</span></span>${byDay ? `<button class="btn sm hl" data-act="galRanger" data-d="${g}">Ranger</button>` : ""}</div><div class="gal g3">`;
+      cur = g;
+    }
+    html += `<div class="ph" data-act="galOpen" data-i="${k}"><img src="${x.src}" alt="" loading="lazy"></div>`;
+  });
+  if (cur !== null) html += "</div>";
+  return `
+  <div class="row between wrap"><h1>Galerie</h1>
+    <label class="btn sm hl filebtn">${ico("plus")} Importer<input type="file" accept="image/*,video/*" multiple data-ch="galImport" hidden></label></div>
+  <p class="sub" style="margin:6px 2px 0">${all.length} photo${all.length > 1 ? "s" : ""} et vidéos, chiffrées sur ton iPhone.${nLoose ? ` <b style="color:var(--hl);cursor:pointer" data-act="galF" data-k="act" data-v="${LOOSE}">${nLoose} à ranger</b>` : ""}</p>
+  <div class="card">
+    <div class="galf">
+      <div><label>Activité</label><select data-ch="galF" data-k="act"><option value="all">Toutes</option>${nLoose ? `<option value="${LOOSE}" ${GF.act === LOOSE ? "selected" : ""}>À ranger (${nLoose})</option>` : ""}${acts.map(a => `<option ${GF.act === a ? "selected" : ""}>${esc(a)}</option>`).join("")}</select></div>
+      <div><label>Lieu</label><select data-ch="galF" data-k="place"><option value="all">Tous</option>${places.map(a => `<option ${GF.place === a ? "selected" : ""}>${esc(a)}</option>`).join("")}</select></div>
+    </div>
+    ${years.length ? `<div class="row wrap" style="gap:6px;margin-top:12px"><span class="chip ${GF.year === "all" ? "on" : ""}" data-act="galF" data-k="year" data-v="all">Toutes les années</span>${years.map(y => `<span class="chip ${GF.year === y ? "on" : ""}" data-act="galF" data-k="year" data-v="${y}">${y}</span>`).join("")}</div>` : ""}
+  </div>
+  ${list.length ? html + (list.length > GF.n ? `<div class="row" style="margin-top:14px"><span class="grow"></span><button class="btn ghost" data-act="galMore">Voir plus (${list.length - GF.n} restantes)</button><span class="grow"></span></div>` : "")
+    : `<div class="card"><div class="empty">${all.length ? "Aucune photo avec ces filtres." : "Importe tes photos : celles prises le jour d'une séance s'y rangent toutes seules, les autres t'attendent dans « À ranger »."}</div></div>`}`;
+}
+function galPhotoSheet(x) {
+  const ev = x.ref === "ev" ? S.events.find(e => e.id === x.id) : null;
+  const map = x.gps ? `https://maps.apple.com/?ll=${x.gps[0]},${x.gps[1]}&q=Photo` : "";
+  openSheet(`<div class="row between"><h2 style="margin:0;text-transform:capitalize">${x.date ? fmtLong(x.date) : "Sans date"}</h2><button class="x" data-act="closeSheet">×</button></div>
+    <div class="faint" style="margin-top:4px">${x.act ? esc(x.act) : "À ranger"}${x.place ? " · " + esc(x.place) : ""}${map ? ` · <a href="${map}" target="_blank" rel="noopener">voir le lieu sur Plans</a>` : ""}</div>
+    ${mediaView(x.src)}
+    ${ev ? `<div class="stat-row" style="margin-top:10px">${seanceStats(ev)}</div>` : ""}
+    <div class="row wrap" style="margin-top:14px"><span class="grow"></span>
+      ${x.ref === "loose" ? `<button class="btn ghost" data-act="galDel" data-id="${x.id}">Supprimer</button><button class="btn" data-act="galRanger" data-d="${x.date}" data-id="${x.id}">Ranger</button>` : ""}
+      ${ev && findItem(ev.libId)[1]?.kind === "discipline" ? `<button class="btn ghost" data-act="editSeance" data-id="${ev.id}">Voir la séance</button>` : ""}</div>`);
+}
+function rangerSheet(d, oneId) {
+  const n = oneId ? 1 : S.gallery.filter(g => (g.date || "") === d).length;
+  const evs = d ? S.events.filter(e => e.date === d && e.kind === "activite") : [];
+  const libs = CATS.map(c => ({ c, l: (S.library[c.id] || []).filter(x => x.kind === "discipline") })).filter(x => x.l.length);
+  const gps = (oneId ? S.gallery.filter(g => g.id === oneId) : S.gallery.filter(g => (g.date || "") === d)).find(g => g.gps)?.gps;
+  openSheet(`<form data-form="galRanger" data-d="${d}" data-id="${oneId || ""}">
+    <div class="row between"><h2 style="margin:0">Ranger ${n > 1 ? `ces ${n} photos` : "cette photo"}</h2><button type="button" class="x" data-act="closeSheet">×</button></div>
+    <p class="sub">Elles rejoignent la séance de ce jour-là : tu les retrouveras dans l'activité, avec la date et le lieu.</p>
+    <label>Date</label><input name="date" type="date" required value="${d}">
+    <label>Activité</label><select name="act" required>
+      ${evs.length ? `<optgroup label="Ce jour-là">${evs.map(e => `<option value="ev:${e.id}">${esc(e.title)}${e.time ? " · " + e.time : ""}</option>`).join("")}</optgroup>` : ""}
+      ${libs.map(({ c, l }) => `<optgroup label="${c.name}">${l.map(x => `<option value="lib:${c.id}:${x.id}">${esc(x.title)}</option>`).join("")}</optgroup>`).join("")}</select>
+    <label>Lieu</label><input name="place" placeholder="Ex. Annecy, salle de pole…" autocomplete="off" value="${esc(evs[0]?.place || "")}">
+    ${gps ? `<div class="faint" style="margin-top:6px">${ico("pin")} Position GPS trouvée dans la photo : <a href="https://maps.apple.com/?ll=${gps[0]},${gps[1]}&q=Photo" target="_blank" rel="noopener">voir sur Plans</a> pour nommer le lieu.</div>` : ""}
+    <div class="row" style="margin-top:16px"><span class="grow"></span><button class="btn">Ranger</button></div></form>`);
+}
+function galRangerSave(form) {
+  const fd = Object.fromEntries(new FormData(form).entries()), d0 = form.dataset.d, one = form.dataset.id, d = fd.date;
+  const moving = S.gallery.filter(g => one ? g.id === one : (g.date || "") === d0);
+  if (!moving.length || !d) return;
+  let ev;
+  if (fd.act.startsWith("ev:")) ev = S.events.find(e => e.id === fd.act.slice(3));
+  else {
+    const [, cat, libId] = fd.act.split(":"), it = findItem(libId)[1];
+    ev = S.events.find(e => e.date === d && e.libId === libId);
+    if (!ev) { ev = { id: uid(), date: d, time: "", title: it.title, kind: "activite", cat, libId, duration: 0, done: true, note: "", photos: [] }; S.events.push(ev); }
+  }
+  if (!ev) return;
+  ev.photos = [...(ev.photos || []), ...moving.map(g => g.src)];
+  if (fd.place.trim()) ev.place = fd.place.trim();
+  const ids = new Set(moving.map(g => g.id)); S.gallery = S.gallery.filter(g => !ids.has(g.id));
+  closeSheet(); save(); toast(`${moving.length} photo${moving.length > 1 ? "s" : ""} rangée${moving.length > 1 ? "s" : ""} dans ${ev.title}`);
+}
+// Date et position d'origine lues dans les métadonnées EXIF de la photo (avant qu'elle soit réduite)
+function readExif(b) {
+  let p = -1;
+  for (let i = 0; i < b.length - 12; i++) if (b[i] === 0x45 && b[i + 1] === 0x78 && b[i + 2] === 0x69 && b[i + 3] === 0x66 && b[i + 4] === 0 && b[i + 5] === 0) { p = i + 6; break; }
+  if (p < 0) return {};
+  const dv = new DataView(b.buffer, b.byteOffset, b.byteLength), le = b[p] === 0x49;
+  const u16 = o => dv.getUint16(p + o, le), u32 = o => dv.getUint32(p + o, le);
+  const ifd = off => { const n = u16(off), t = {}; for (let i = 0; i < n; i++) { const e = off + 2 + i * 12; t[u16(e)] = { count: u32(e + 4), val: e + 8 }; } return t; };
+  const str = t => { const off = t.count > 4 ? u32(t.val) : t.val; let s = ""; for (let i = 0; i < t.count - 1; i++) s += String.fromCharCode(b[p + off + i]); return s; };
+  const rat = (t, k) => { const off = u32(t.val) + k * 8; return u32(off) / (u32(off + 4) || 1); };
+  const out = {}, i0 = ifd(u32(4));
+  try {
+    const ex = i0[0x8769] ? ifd(u32(i0[0x8769].val)) : {};
+    const dt = ex[0x9003] || ex[0x9004] || i0[0x0132];
+    const m = dt && str(dt).match(/^(\d{4}):(\d\d):(\d\d)/); if (m && m[1] > "1990") out.date = `${m[1]}-${m[2]}-${m[3]}`;
+  } catch (e) {}
+  try {
+    if (i0[0x8825]) {
+      const g = ifd(u32(i0[0x8825].val)), dms = t => rat(t, 0) + rat(t, 1) / 60 + rat(t, 2) / 3600;
+      if (g[2] && g[4]) { let lat = dms(g[2]), lon = dms(g[4]); if (g[1] && String.fromCharCode(b[p + g[1].val]) === "S") lat = -lat; if (g[3] && String.fromCharCode(b[p + g[3].val]) === "W") lon = -lon; if (lat || lon) out.gps = [Math.round(lat * 1e5) / 1e5, Math.round(lon * 1e5) / 1e5]; }
+    }
+  } catch (e) {}
+  return out;
+}
+async function fileMeta(f) {
+  let r = {};
+  if (f.type.startsWith("image/")) try { r = readExif(new Uint8Array(await f.slice(0, 512 * 1024).arrayBuffer())); } catch (e) {}
+  if (!r.date && f.lastModified) r.date = iso(new Date(f.lastModified));
+  return r;
+}
+// Import en masse : chaque photo va dans la séance de son jour s'il y en a une seule, sinon dans « À ranger »
+async function galImport(files) {
+  const bar = progressToast(); let inEv = 0, loose = 0, fail = 0;
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    bar(`${i + 1}/${files.length} · ${f.type.startsWith("video/") ? "Vidéo chiffrée…" : "Photo…"}`, i / files.length);
+    try {
+      const meta = await fileMeta(f), ref = f.type.startsWith("video/") ? await storeVideo(f) : await storeImage(f);
+      const evs = meta.date ? S.events.filter(e => e.date === meta.date && e.kind === "activite" && (e.done || e.date <= today())) : [];
+      if (evs.length === 1) { evs[0].photos = [...(evs[0].photos || []), ref]; inEv++; }
+      else { S.gallery.push({ id: uid(), src: ref, date: meta.date || "", place: "", gps: meta.gps || null }); loose++; }
+    } catch (err) { fail++; if (/quota/i.test(String(err))) { toast("Plus assez d'espace sur l'iPhone"); break; } }
+    if (i % 20 === 19) await persist();
+  }
+  bar(null); save();
+  toast(`${inEv + loose} importée${inEv + loose > 1 ? "s" : ""}${inEv ? ` · ${inEv} rangée${inEv > 1 ? "s" : ""} dans tes séances` : ""}${loose ? ` · ${loose} à ranger` : ""}${fail ? ` · ${fail} illisible${fail > 1 ? "s" : ""}` : ""}`);
+}
+
+/* =========================================================
    10. VUE : PROFIL
    ========================================================= */
 function viewProfil() {
@@ -2044,6 +2196,11 @@ const ACT = {
   delSeance: async el => { if (!(await ask("Supprimer cette séance et ses photos ?", "Supprimer"))) return; S.events = S.events.filter(x => x.id !== el.dataset.id); save(); },
   rmSPhoto: el => { draftSeance.photos.splice(Number(el.dataset.i), 1); $("#sphotos").innerHTML = thumbsHtml(); },
   galSort: el => { V.galSort = el.dataset.k; render(); },
+  galF: el => { GF[el.dataset.k] = el.dataset.v; GF.n = 90; if (V.tab !== "galerie") V.tab = "galerie"; render(); },
+  galMore: () => { GF.n += 90; render(); },
+  galOpen: el => { const x = V.galList?.[Number(el.dataset.i)]; if (x) galPhotoSheet(x); },
+  galRanger: el => rangerSheet(el.dataset.d || "", el.dataset.id || ""),
+  galDel: async el => { if (!(await ask("Supprimer cette photo de l'appli ? (l'original sur ton disque dur n'est pas touché)", "Supprimer"))) return; S.gallery = S.gallery.filter(g => g.id !== el.dataset.id); closeSheet(); save(); },
   galYear: el => { V.galYear = el.dataset.k; render(); },
   viewPhoto: el => {
     const ev = S.events.find(x => x.id === el.dataset.id);
@@ -2219,7 +2376,7 @@ const healthLine = d => [d.steps != null ? nf(d.steps) + " pas" : "", d.sleep !=
 const HKEYS = ["steps", "sleep", "exApple", "walkKm", "activeKcal", "restKcal", "hrRest", "hrAvg", "hrMin", "hrMax", "hrv", "skiKm", "swimKm", "bikeKm"];
 // Au-delà, une énergie « au repos » ne peut pas être en kcal : c'est une valeur en kilojoules
 const KJ_REST = 4000;
-const APP_VERSION = "2026-11-17 · énergie en kJ";
+const APP_VERSION = "2026-11-21 · galerie";
 const kcalWarn = d => (Number(d.activeKcal) || 0) > 2500 || (Number(d.activeKcal) || 0) + (Number(d.restKcal) || 0) > 5000;
 function applyHealth({ days, workouts }) {
   const ks = Object.keys(days).sort(), nW = importWorkouts(workouts);
@@ -2308,6 +2465,8 @@ document.addEventListener("change", async e => {
     $("#sheet .sheet").innerHTML = itemForm(draftItem);
   }
   else if (k === "ficheFile") { const f = el.files[0]; if (f) el.closest("form").data.value = await f.text(); }
+  else if (k === "galImport") { const files = [...el.files]; el.value = ""; if (files.length) await galImport(files); }
+  else if (k === "galF") { GF[el.dataset.k] = el.value; GF.n = 90; render(); }
   else if (k === "seancePhotos") {
     const files = [...el.files]; if (!files.length) return;
     el.value = ""; draftSeance.photos.push(...await storeFiles(files));
@@ -2421,6 +2580,7 @@ document.addEventListener("submit", async e => {
     if (!b.id) { ev.done = fd.date <= today(); S.events.push(ev); }
     if (draftSeance.goalId) { const g = (findItem(ev.libId)[1]?.goals || []).find(x => x.id === draftSeance.goalId); if (g) { g.done = true; g.seanceId = ev.id; ev.goalId = g.id; } }
     closeSheet(); save(); { const one = (LABELS[ev.cat] || LABELS.sport).one; toast(ev.done ? `${one} enregistrée` : `${one} planifiée dans l'agenda`); }
+  } else if (k === "galRanger") { galRangerSave(form);
   } else if (k === "saveStat") {
     const v = form.v.value; setDay(today(), { [form.dataset.k]: v === "" ? null : Number(v) }); closeSheet(); save();
   } else if (k === "saveItem") {
