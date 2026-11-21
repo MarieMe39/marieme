@@ -1455,7 +1455,7 @@ function mealForm(m) {
     <div class="row" style="margin-top:16px">${m.id ? `<button type="button" class="btn danger" data-act="delMeal" data-id="${m.id}">Supprimer</button>` : ""}<span class="grow"></span><button class="btn">Enregistrer</button></div></form>`;
 }
 
-const MTYPES = { livre: "Livre", film: "Film", serie: "Série", musique: "Musique" };
+const MTYPES = { livre: "Livre", film: "Film", serie: "Série", musique: "Musique", podcast: "Podcast", recherche: "Recherche" };
 const MSTATUS = { todo: "À découvrir", doing: "En cours", done: "Terminé" };
 const stars = n => n ? "★".repeat(n) + "☆".repeat(5 - n) : "";
 function viewMedia() {
@@ -1474,7 +1474,7 @@ function viewMedia() {
   </div>
   <div class="seg" style="margin-bottom:6px"><button class="${V.mStatus === "all" ? "on" : ""}" data-act="mStatus" data-k="all">Tous</button>${Object.entries(MSTATUS).map(([k, n]) => `<button class="${V.mStatus === k ? "on" : ""}" data-act="mStatus" data-k="${k}">${n}</button>`).join("")}</div>
   <div class="card">${list.length ? `<div class="gal">${list.map(m => photoTile(m.photos?.[0], m.title, `${MTYPES[m.type]}${m.author ? " · " + esc(m.author) : ""}${m.rating ? `<div>${stars(m.rating)}</div>` : ""}`, "openMedia", m.id)).join("")}</div>`
-    : `<div class="empty">Ajoute tes livres, films et séries : résumé, photos, et les citations que tu veux retenir.</div>`}</div>
+    : `<div class="empty">Ajoute tes livres, films, séries, podcasts et recherches : résumé, liens, photos, et les citations que tu veux retenir.</div>`}</div>
   ${legacy.length ? `<div class="eyebrow">Autres éléments</div><div class="card">${legacy.map(x => `<div class="item" data-act="editItem" data-id="${x.id}"><div class="ibox">${ico(KINDS[x.kind]?.i)}</div><div class="grow"><div style="font-weight:600">${esc(x.title)}</div><div class="faint">${KINDS[x.kind]?.n || ""}</div></div></div>`).join("")}</div>` : ""}`;
 }
 function mediaForm(m) {
@@ -1484,8 +1484,8 @@ function mediaForm(m) {
       <div><label>Type</label><select name="type">${Object.entries(MTYPES).map(([k, n]) => `<option value="${k}" ${m.type === k ? "selected" : ""}>${n}</option>`).join("")}</select></div>
       <div><label>Statut</label><select name="status">${Object.entries(MSTATUS).map(([k, n]) => `<option value="${k}" ${m.status === k ? "selected" : ""}>${n}</option>`).join("")}</select></div></div>
     <label>Titre</label><input name="title" required value="${esc(m.title || "")}">
-    <label>Auteur·rice / réalisation / artiste</label><input name="author" value="${esc(m.author || "")}">
-    <label>Lien (Spotify, Deezer, YouTube…)</label><input name="link" type="url" inputmode="url" placeholder="https://…" value="${esc(m.link || "")}">
+    <label>Auteur·rice / réalisation / artiste / source</label><input name="author" value="${esc(m.author || "")}">
+    <label>Liens (Spotify, YouTube, article… un par ligne)</label><textarea name="links" inputmode="url" placeholder="https://…" style="min-height:70px">${esc((m.links || (m.link ? [m.link] : [])).join("\n"))}</textarea>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 10px">
       <div><label>Ma note</label><select name="rating"><option value="">—</option>${[1, 2, 3, 4, 5].map(n => `<option value="${n}" ${m.rating == n ? "selected" : ""}>${stars(n)}</option>`).join("")}</select></div>
       <div><label>Terminé le</label><input name="date" type="date" value="${m.date || ""}"></div></div>
@@ -1496,7 +1496,7 @@ function mediaForm(m) {
 }
 function mediaDetail(m) {
   return `<div class="row between"><div><div class="faint">${MTYPES[m.type]} · ${MSTATUS[m.status]}${m.date ? " · " + fmtShort(m.date) + " " + m.date.slice(0, 4) : ""}</div><h2 style="margin:2px 0 0">${esc(m.title)}</h2></div><button class="x" data-act="closeSheet">×</button></div>
-    ${m.author ? `<div class="sub">${esc(m.author)}</div>` : ""}${/^https?:\/\//.test(m.link || "") ? `<a class="btn ghost sm" style="margin-top:8px;display:inline-flex;text-decoration:none;color:var(--text)" href="${esc(m.link)}" target="_blank" rel="noopener">${m.type === "musique" ? "▶ Écouter" : "Ouvrir le lien"}</a>` : ""}${m.rating ? `<div style="color:var(--hl);margin-top:4px">${stars(m.rating)}</div>` : ""}
+    ${m.author ? `<div class="sub">${esc(m.author)}</div>` : ""}${(m.links || (m.link ? [m.link] : [])).filter(u => /^https?:\/\//.test(u)).length ? `<div class="row wrap" style="gap:6px;margin-top:8px">${(m.type === "musique" || m.type === "podcast") && (m.links || [m.link])[0] ? `<a class="btn ghost sm" style="display:inline-flex;text-decoration:none;color:var(--text)" href="${esc((m.links || [m.link])[0])}" target="_blank" rel="noopener">▶ Écouter</a>` : ""}${linkList((m.links || [m.link]).filter(u => /^https?:\/\//.test(u)))}</div>` : ""}${m.rating ? `<div style="color:var(--hl);margin-top:4px">${stars(m.rating)}</div>` : ""}
     ${(m.photos || []).length ? `<div class="thumbs" style="margin-top:12px">${m.photos.map(src => `<img src="${src}" alt="" style="width:96px;height:96px">`).join("")}</div>` : ""}
     ${(() => { const ss = mediaSessions(m), mins = ss.reduce((a, e) => a + (Number(e.duration) || 0), 0);
       return `<div class="card" style="margin:14px 0 0;background:var(--card2);padding:12px"><div class="row between"><div><div class="faint">Temps passé</div><div style="font-size:20px;font-weight:700">${fmtDur(mins)} <small class="faint">· ${ss.length} session${ss.length > 1 ? "s" : ""}</small></div></div>
@@ -2399,7 +2399,8 @@ function parseHealth(txt) {
     }
     if (/regle|menstru|period/.test(k)) { const n = num(v); out.period = !isNaN(n) ? n > 0 : /oui|yes|x/i.test(v); continue; }
     if (/distance/.test(k) && /ski|nage|swim|velo|bike|cycl/.test(k)) { const n = num(v); if (!isNaN(n)) { const km = Math.round((/\bm\b/.test(v) && n > 100 ? n / 1000 : n) * 100) / 100; out[/ski/.test(k) ? "skiKm" : /nage|swim/.test(k) ? "swimKm" : "bikeKm"] = km; } continue; }
-    if (/pas|step/.test(k)) { const n = num(v); if (!isNaN(n)) out.steps = Math.round(n); }
+    // plusieurs valeurs le même jour (une par source : iPhone, Suunto…) : on garde la plus grande, jamais la somme
+    if (/pas|step/.test(k)) { const n = num(v); if (!isNaN(n)) out.steps = Math.max(out.steps || 0, Math.round(n)); }
     else if (/sommeil|sleep/.test(k)) { const n = toMinutes(v, k); if (!isNaN(n)) out.sleep = Math.round(n / 60 * 100) / 100; }
     else if (/exerc|entrain|workout|sport/.test(k)) { const n = toMinutes(v, k); if (!isNaN(n)) out.exApple = Math.round(n); }
     else if (/eau|water/.test(k)) { let n = num(v); if (!isNaN(n)) out.water = Math.round(/\bl\b|litre/i.test(v) || n < 10 ? n * 1000 : n); }
@@ -2453,7 +2454,7 @@ const healthLine = d => [d.steps != null ? nf(d.steps) + " pas" : "", d.sleep !=
 const HKEYS = ["steps", "sleep", "exApple", "walkKm", "activeKcal", "restKcal", "hrRest", "hrAvg", "hrMin", "hrMax", "hrv", "skiKm", "swimKm", "bikeKm"];
 // Au-delà, une énergie « au repos » ne peut pas être en kcal : c'est une valeur en kilojoules
 const KJ_REST = 4000;
-const APP_VERSION = "2026-11-21 · étiquettes photos";
+const APP_VERSION = "2026-11-22 · podcasts, recherches";
 const kcalWarn = d => (Number(d.activeKcal) || 0) > 2500 || (Number(d.activeKcal) || 0) + (Number(d.restKcal) || 0) > 5000;
 function applyHealth({ days, workouts }) {
   const ks = Object.keys(days).sort(), nW = importWorkouts(workouts);
@@ -2620,8 +2621,8 @@ document.addEventListener("submit", async e => {
     if (!b) S.health.meals.push(m); closeSheet(); save();
   } else if (k === "saveMedia") {
     const fd = Object.fromEntries(new FormData(form).entries()), b = draftSeance.base;
-    const m = b || { id: uid(), quotes: [] }; Object.assign(m, { type: fd.type, status: fd.status, title: fd.title.trim(), author: fd.author, link: (fd.link || "").trim(), rating: Number(fd.rating) || null, date: fd.date, summary: fd.summary, photos: draftSeance.photos, updated: new Date().toISOString() });
-    if (!b) S.media.push(m); V.media = m.id; save(); openSheet(mediaDetail(m));
+    const m = b || { id: uid(), quotes: [] }; Object.assign(m, { type: fd.type, status: fd.status, title: fd.title.trim(), author: fd.author, links: (fd.links || "").split("\n").map(x => x.trim()).filter(Boolean).map(u => /^https?:\/\//.test(u) ? u : "https://" + u), rating: Number(fd.rating) || null, date: fd.date, summary: fd.summary, photos: draftSeance.photos, updated: new Date().toISOString() });
+    m.link = m.links[0] || ""; if (!b) S.media.push(m); V.media = m.id; save(); openSheet(mediaDetail(m));
   } else if (k === "saveFiche") {
     const fd = Object.fromEntries(new FormData(form).entries());
     const quiz = fd.quiz.split("\n").map(l => l.split("|").map(x => x.trim()).filter(Boolean)).filter(p => p.length >= 3).map(p => ({ q: p[0], c: p.slice(1), a: 0 }));
