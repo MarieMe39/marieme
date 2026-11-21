@@ -361,25 +361,186 @@ const PHASES = {
 };
 
 const SAVOIRS = [
- { t: "Les batteries sodium-ion", th: "Technologie", b: [
+ { t: "L'impression 3D en métal", th: "Mécanique", b: [
+  "Imprimer un objet en métal couche par couche, c'est possible. La technique la plus répandue s'appelle la fusion laser sur lit de poudre : une fine couche de poudre métallique est étalée, un laser fait fondre uniquement les zones qui forment la pièce, puis une nouvelle couche est déposée, et ainsi de suite.",
+  "L'intérêt n'est pas d'aller plus vite qu'une usine classique, mais de fabriquer des formes impossibles autrement : canaux internes courbes, structures en treillis légères comme un os, pièces creuses d'un seul bloc.",
+  "Exemple célèbre : l'injecteur de carburant du moteur d'avion LEAP, imprimé en une seule pièce au lieu d'une vingtaine de pièces assemblées. Il est plus léger et beaucoup plus durable.",
+  "On l'utilise aussi pour des prothèses de hanche sur mesure, des outillages, des pièces de Formule 1 ou de fusées.",
+  "À retenir : l'impression 3D métal ne remplace pas l'usinage, elle permet de dessiner des pièces en pensant d'abord à leur fonction." ]},
+ { t: "Le jumeau numérique", th: "Mécanique", b: [
+  "Un jumeau numérique est une copie virtuelle d'un objet réel (moteur, éolienne, usine, voire bâtiment) qui vit en même temps que lui. Des capteurs placés sur l'objet envoient en continu leurs mesures : températures, vibrations, vitesses, efforts.",
+  "Le modèle informatique se met à jour avec ces données. On peut alors voir l'état réel de la machine à distance et tester des scénarios sans risque : que se passe-t-il si on augmente la cadence ? si une pièce s'use ?",
+  "La grande application, c'est la maintenance prédictive : au lieu de changer une pièce à date fixe ou après la panne, on la remplace quand le jumeau montre qu'elle commence à fatiguer. Moins de pannes, moins de gaspillage.",
+  "Les motoristes d'avions, les industriels et même des villes entières utilisent ce principe.",
+  "À retenir : le jumeau numérique, c'est la machine plus sa mémoire et sa capacité à anticiper." ]},
+ { t: "La fibre de carbone et les composites", th: "Mécanique", b: [
+  "Un matériau composite associe au moins deux matériaux pour cumuler leurs qualités. Dans la fibre de carbone, des fils de carbone très fins et très résistants sont noyés dans une résine qui les colle et leur donne leur forme.",
+  "Le résultat est à la fois léger et rigide, plus que l'acier à poids égal. Particularité : sa résistance dépend du sens des fibres. Les ingénieurs superposent donc des couches orientées différemment pour qu'elles travaillent exactement dans le sens des efforts.",
+  "On le retrouve dans les vélos, les raquettes, les cadres de moto, les voitures de course et les avions : le Boeing 787 et l'Airbus A350 sont constitués d'environ 50 % de composites en masse.",
+  "Ses points faibles : il coûte cher, il casse sans prévenir au lieu de se déformer, et il se recycle mal. La recherche travaille sur des résines recyclables.",
+  "À retenir : un composite se conçoit comme un tissage, fibre par fibre, selon les efforts qu'il devra supporter." ]},
+ { t: "Les métaux à mémoire de forme", th: "Mécanique", b: [
+  "Certains alliages se « souviennent » de leur forme. Le plus connu, le Nitinol, mélange de nickel et de titane, peut être déformé à froid puis reprendre sa forme d'origine dès qu'on le chauffe un peu.",
+  "Le secret est dans sa structure cristalline : selon la température, les atomes s'organisent de deux façons différentes. Le passage de l'une à l'autre ramène la pièce à la forme qui lui a été « apprise » lors de sa fabrication.",
+  "Applications : les stents, ces petits ressorts qui maintiennent une artère ouverte, insérés repliés puis qui se déploient à la chaleur du corps ; des montures de lunettes presque incassables ; des fils d'appareils dentaires ; des petits actionneurs sans moteur.",
+  "Ces alliages sont aussi superélastiques : ils peuvent se déformer beaucoup et revenir en place sans casser.",
+  "À retenir : ici, c'est le matériau lui-même qui fait office de mécanisme." ]},
+ { t: "Le pancréas artificiel", th: "Santé", b: [
+  "Chez les personnes atteintes de diabète de type 1, le pancréas ne fabrique plus d'insuline, l'hormone qui fait baisser le sucre dans le sang. Il faut donc en injecter plusieurs fois par jour, en calculant les doses soi-même.",
+  "Le pancréas artificiel automatise une partie de ce travail. Il associe trois éléments : un capteur collé sur la peau qui mesure le glucose en continu, une pompe à insuline, et un algorithme qui relie les deux.",
+  "Toutes les quelques minutes, l'algorithme lit la glycémie, anticipe son évolution et ajuste la quantité d'insuline délivrée. On parle de « boucle fermée ». Les systèmes actuels sont dits hybrides : la personne annonce encore ses repas.",
+  "Ces systèmes améliorent nettement le temps passé dans la bonne zone de glycémie, surtout la nuit, et allègent la charge mentale de la maladie.",
+  "À retenir : capteur + pompe + algorithme, c'est l'organe remplacé par une boucle de contrôle." ]},
+ { t: "IRM : voir à l'intérieur du corps", th: "Santé", b: [
+  "L'IRM (imagerie par résonance magnétique) photographie l'intérieur du corps sans rayons X. Elle utilise un aimant très puissant, des ondes radio et les atomes d'hydrogène contenus dans l'eau de nos tissus.",
+  "Dans l'aimant, ces atomes s'alignent. Une onde radio les fait basculer ; en revenant à leur position, ils émettent un petit signal, différent selon le tissu où ils se trouvent. Un ordinateur transforme ces signaux en images en coupe.",
+  "La puissance d'un aimant se mesure en teslas. Les appareils des hôpitaux font en général 1,5 ou 3 teslas. En France, l'IRM Iseult du CEA, à 11,7 teslas, a produit en 2024 ses premières images du cerveau, d'une précision inédite.",
+  "C'est pour cela qu'on retire tout objet métallique avant un examen : l'aimant est des dizaines de milliers de fois plus fort que le champ magnétique terrestre.",
+  "À retenir : une IRM, c'est l'eau de ton corps qui répond à un aimant." ]},
+ { t: "Remarcher grâce à un implant", th: "Santé", b: [
+  "Après une lésion de la moelle épinière, le cerveau sait encore vouloir bouger, mais le message n'arrive plus jusqu'aux jambes. Des équipes de Lausanne et de Grenoble (EPFL, CHUV, CEA-Clinatec) ont créé un « pont numérique » pour contourner la lésion.",
+  "Le principe : un implant posé sur le cerveau capte l'intention de marcher, un algorithme la décode, puis un second implant stimule la moelle épinière sous la lésion, aux bons endroits et au bon moment.",
+  "En 2023, la revue Nature a décrit le cas de Gert-Jan, paralysé après un accident de vélo, qui a pu se lever, marcher et monter des escaliers en contrôlant ses jambes par la pensée. Avec la rééducation, il a même retrouvé un peu de mouvement quand l'implant est éteint.",
+  "Ces interfaces cerveau-machine sont encore expérimentales et réservées à quelques patients.",
+  "À retenir : on ne répare pas encore la moelle, mais on sait faire passer le message autrement." ]},
+ { t: "Le robot chirurgical", th: "Santé", b: [
+  "Dans un bloc opératoire équipé d'un robot, le chirurgien n'est pas penché sur le patient : il est assis à une console, les yeux dans une vision 3D grossie, les mains sur des manettes. Le robot reproduit ses gestes avec des bras fins introduits par de petites incisions.",
+  "Le robot ne décide de rien : il filtre les petits tremblements des mains, démultiplie les mouvements pour plus de précision, et ses « poignets » tournent dans des angles impossibles pour une main humaine.",
+  "Pour le patient, cela signifie le plus souvent des incisions plus petites, moins de saignement et une récupération plus rapide, par exemple en urologie ou en gynécologie.",
+  "Le plus connu, le robot da Vinci, est utilisé depuis le début des années 2000. Les recherches actuelles portent sur l'aide de l'imagerie et de l'IA pendant l'opération.",
+  "À retenir : le robot est un prolongement des mains du chirurgien, pas un remplaçant." ]},
+ { t: "Les chaussures à plaque carbone", th: "Sport", b: [
+  "Depuis la fin des années 2010, les records de course sur route tombent les uns après les autres. Une des raisons se trouve sous les pieds des coureurs.",
+  "Ces chaussures associent une mousse très légère et très « rebondissante » (souvent à base de PEBA) qui restitue une grande partie de l'énergie, et une plaque rigide en fibre de carbone qui guide le pied et raidit la semelle.",
+  "Les études ont mesuré un gain d'environ 4 % d'économie de course : à la même vitesse, le coureur dépense moins d'énergie. Sur un marathon, cela peut représenter plusieurs minutes.",
+  "Face à ce bond, World Athletics a fixé des règles : sur route, la semelle ne doit pas dépasser 40 mm d'épaisseur, et les chaussures doivent être disponibles dans le commerce.",
+  "À retenir : dans le sport, l'innovation oblige aussi à réécrire les règles." ]},
+ { t: "Le GPS bi-fréquence des montres", th: "Sport", b: [
+  "Ta montre calcule ta position en écoutant des satellites. Mais en forêt, en montagne ou entre des immeubles, le signal rebondit sur les obstacles avant d'arriver : la position « saute » et la distance enregistrée devient fausse.",
+  "Les montres récentes captent deux fréquences à la fois, L1 et L5 (on parle de bi-fréquence ou multi-bande). Comparer deux signaux permet de repérer ceux qui ont rebondi et de corriger les erreurs dues à l'atmosphère.",
+  "Elles écoutent aussi plusieurs constellations : le GPS américain, le Galileo européen, le GLONASS russe, le BeiDou chinois. Plus de satellites visibles, c'est une position plus fiable.",
+  "Contrepartie : ce mode consomme plus de batterie. Il vaut surtout la peine en trail, en ville ou en ski.",
+  "À retenir : pour une trace propre en montagne, active le mode multi-bande." ]},
+ { t: "Le foil : voler sur l'eau", th: "Sport", b: [
+  "Un foil est une aile placée sous l'eau, au bout d'un mât fixé sous une planche ou un bateau. Comme une aile d'avion dans l'air, il crée une portance quand il avance dans l'eau.",
+  "Passé une certaine vitesse, cette portance soulève la planche ou la coque au-dessus de la surface. Seul le foil reste immergé : les frottements chutent, la vitesse grimpe et les vagues ne secouent presque plus.",
+  "Le principe est ancien, mais les matériaux composites l'ont rendu accessible : kitefoil, wingfoil, surf foil, et même bateaux de la Coupe de l'America qui volent au-dessus de l'eau.",
+  "L'équilibre est subtil : il faut régler sa position en permanence pour garder la bonne hauteur, ni trop haut, ni trop bas.",
+  "À retenir : l'eau est 800 fois plus dense que l'air, une petite aile suffit donc à porter beaucoup de poids." ]},
+ { t: "La VO2max calculée par ta montre", th: "Sport", b: [
+  "La VO2max est la quantité maximale d'oxygène que ton corps peut utiliser par minute pendant un effort. C'est un bon indicateur de ton endurance et de ta santé cardiovasculaire.",
+  "En laboratoire, on la mesure avec un masque qui analyse l'air expiré pendant un effort jusqu'à épuisement. Les montres, elles, l'estiment : elles comparent ta vitesse (ou ta puissance) à ta fréquence cardiaque pendant tes séances.",
+  "Si tu cours plus vite pour le même nombre de battements, c'est que ton cœur et tes muscles sont plus efficaces : l'estimation monte. La chaleur, la fatigue ou le dénivelé peuvent la fausser.",
+  "Les mêmes capteurs servent à estimer le temps de récupération ou la charge d'entraînement, à partir de la variabilité de la fréquence cardiaque.",
+  "À retenir : regarde la tendance sur plusieurs semaines plutôt que le chiffre d'un jour." ]},
+ { t: "Le freinage régénératif", th: "Auto / Moto", b: [
+  "Quand une voiture thermique freine, son énergie de mouvement part en chaleur dans les disques. Une voiture électrique ou hybride peut en récupérer une partie.",
+  "Le moteur électrique est réversible : quand on lève le pied, les roues l'entraînent et il fonctionne comme une dynamo. Il produit de l'électricité qui recharge la batterie, et ce faisant il ralentit le véhicule.",
+  "En ville, avec ses arrêts fréquents, ce système récupère une part importante de l'énergie et augmente l'autonomie. Beaucoup de véhicules permettent de conduire presque sans toucher la pédale de frein : c'est la conduite « à une pédale ».",
+  "Les freins classiques restent indispensables pour les freinages forts et l'arrêt complet, et ils s'usent beaucoup moins.",
+  "À retenir : sur un véhicule électrique, freiner peut faire gagner des kilomètres." ]},
+ { t: "L'airbag pour motard", th: "Auto / Moto", b: [
+  "Pour les motards, l'airbag ne se trouve pas dans le véhicule mais sur le pilote, dans un gilet ou dans la veste.",
+  "Il en existe deux familles. Les gilets filaires sont reliés à la moto par un câble : en cas d'éjection, le câble tire et déclenche une cartouche de gaz. Les systèmes électroniques contiennent des capteurs (accéléromètres, gyroscopes) et un algorithme qui reconnaît une chute ou un choc.",
+  "Dans les deux cas, le gonflage prend quelques dizaines de millisecondes. Le coussin protège surtout le cou, le dos, la poitrine et l'abdomen.",
+  "Venus de la compétition, où ils sont devenus obligatoires en MotoGP, ces équipements se démocratisent sur route.",
+  "À retenir : un airbag moto complète la dorsale et le casque, il ne les remplace pas." ]},
+ { t: "L'ABS en courbe pour la moto", th: "Auto / Moto", b: [
+  "L'ABS empêche les roues de se bloquer au freinage. Sur une moto droite, c'est déjà précieux. Mais en virage, la moto est penchée et le pneu doit à la fois tenir la trajectoire et freiner : la marge est beaucoup plus faible.",
+  "L'ABS en courbe, apparu au début des années 2010, ajoute une centrale inertielle : un petit boîtier qui mesure en permanence l'angle d'inclinaison, le tangage et les accélérations.",
+  "Avec ces données, le calculateur dose la pression de freinage selon l'angle et limite le redressement brutal de la moto quand on freine en courbe. Le même capteur sert au contrôle de traction et à l'anti-wheeling.",
+  "Il ne repousse pas les lois de la physique, mais il pardonne beaucoup d'erreurs.",
+  "À retenir : la centrale inertielle est le « sens de l'équilibre » électronique des motos modernes." ]},
+ { t: "La Formule 1 hybride", th: "Auto / Moto", b: [
+  "Depuis 2014, les Formule 1 sont hybrides : un moteur thermique V6 turbo associé à des systèmes de récupération d'énergie.",
+  "Le MGU-K récupère l'énergie au freinage, comme une voiture électrique. Le MGU-H, plus original, récupère l'énergie de la chaleur des gaz d'échappement grâce au turbo. Les moteurs de F1 ont ainsi dépassé 50 % de rendement thermique, un record pour un moteur à essence.",
+  "Le règlement 2026 change la donne : le MGU-H disparaît, la part électrique de la puissance augmente fortement, et le carburant doit être durable.",
+  "Beaucoup de ces technologies servent ensuite sur route : turbos électriques, gestion des batteries, récupération d'énergie.",
+  "À retenir : la F1 sert de laboratoire grandeur nature pour l'efficacité des moteurs." ]},
+ { t: "Les winglets", th: "Aéronautique", b: [
+  "Tu as sûrement remarqué ces petites ailettes relevées au bout des ailes d'avion. Elles s'appellent des winglets, ou « sharklets » chez Airbus.",
+  "Sous l'aile, la pression est plus forte qu'au-dessus. Au bout de l'aile, l'air contourne l'extrémité de bas en haut et forme un tourbillon : le vortex marginal. Ce tourbillon crée une traînée qui freine l'avion.",
+  "Le winglet gêne la formation de ce tourbillon et récupère une partie de son énergie. L'avion consomme ainsi quelques pour cent de carburant en moins, ce qui est énorme à l'échelle d'une flotte.",
+  "L'idée vient de l'observation des grands oiseaux planeurs, qui écartent les plumes au bout de leurs ailes.",
+  "À retenir : un petit détail de forme peut économiser des milliers de tonnes de carburant." ]},
+ { t: "Le carburant d'aviation durable", th: "Aéronautique", b: [
+  "Pour réduire les émissions des avions, une des pistes les plus rapides consiste à changer de carburant sans changer d'avion. Ce sont les carburants d'aviation durables, ou SAF en anglais.",
+  "Ils sont produits à partir d'huiles usagées, de graisses, de résidus agricoles ou forestiers, ou encore synthétisés à partir de CO2 et d'hydrogène (les e-carburants). Leur composition est proche du kérosène, ils peuvent donc être mélangés à celui-ci.",
+  "Aujourd'hui, ils sont certifiés jusqu'à 50 % du mélange. L'Union européenne impose une part minimale croissante : 2 % en 2025, 6 % en 2030, jusqu'à 70 % en 2050.",
+  "Le défi : ils coûtent bien plus cher et la production reste très limitée.",
+  "À retenir : le SAF réduit les émissions sur l'ensemble de son cycle de vie, pas à la sortie du moteur." ]},
+ { t: "Le moteur « open rotor »", th: "Aéronautique", b: [
+  "Les moteurs d'avion actuels cachent leur grande soufflante dans un carénage. Le projet RISE, mené par Safran et GE, propose de la sortir à l'air libre : c'est l'open rotor.",
+  "Une soufflante beaucoup plus grande, non carénée, brasse davantage d'air plus lentement. C'est plus efficace pour produire la poussée, comme une grande hélice. Une seconde rangée de pales fixes redresse le flux d'air.",
+  "L'objectif annoncé : environ 20 % de consommation en moins par rapport aux meilleurs moteurs actuels, compatible avec les carburants durables et l'hydrogène.",
+  "Les défis sont le bruit et l'intégration sur l'avion. Les essais en vol sont prévus avant une mise en service visée vers le milieu des années 2030.",
+  "À retenir : pour économiser du carburant, on cherche à pousser plus d'air, plus lentement." ]},
+ { t: "La boîte noire", th: "Aéronautique", b: [
+  "La « boîte noire » est en fait orange vif, pour être retrouvée facilement. Et il y en a deux : l'enregistreur de paramètres de vol et l'enregistreur des conversations du cockpit.",
+  "L'idée vient de l'Australien David Warren dans les années 1950, après des accidents inexpliqués : enregistrer les voix et les données pour comprendre ce qui s'est passé.",
+  "Les enregistreurs modernes stockent des milliers de paramètres sur des mémoires électroniques protégées, conçues pour résister à des chocs extrêmes, au feu et à la pression des grands fonds. Une balise émet un signal sous l'eau pendant plusieurs semaines.",
+  "Chaque enquête après accident améliore la sécurité de tous les vols : c'est l'une des raisons pour lesquelles l'avion est devenu si sûr.",
+  "À retenir : la boîte noire sert surtout à ce que la même erreur ne se reproduise jamais." ]},
+ { t: "Les fusées réutilisables", th: "Aérospatial", b: [
+  "Pendant des décennies, chaque fusée était perdue après un seul vol, comme si on jetait un avion après chaque trajet. En décembre 2015, SpaceX a réussi pour la première fois à faire atterrir verticalement le premier étage d'une Falcon 9 après un lancement orbital.",
+  "Le principe : après la séparation, l'étage se retourne, rallume ses moteurs pour freiner, déploie des ailerons pour se guider et se pose sur une barge ou une zone d'atterrissage.",
+  "Réutiliser le premier étage, la partie la plus coûteuse, fait baisser fortement le prix d'un lancement et augmente la cadence.",
+  "L'Europe travaille aussi sur le sujet, avec le démonstrateur Themis, tandis qu'Ariane 6, qui a volé pour la première fois en 2024, reste une fusée non réutilisable.",
+  "À retenir : la réutilisation a changé l'économie de l'espace." ]},
+ { t: "Comment fonctionne le GPS", th: "Aérospatial", b: [
+  "Ton téléphone ne communique pas avec les satellites GPS : il les écoute. Chaque satellite diffuse en permanence l'heure exacte donnée par son horloge atomique et sa position.",
+  "Le récepteur mesure le temps mis par chaque signal pour arriver. À la vitesse de la lumière, une différence d'un milliardième de seconde correspond à 30 cm. Avec au moins quatre satellites, il calcule sa position et corrige sa propre horloge.",
+  "Fait étonnant : il faut tenir compte de la relativité d'Einstein. Les horloges des satellites avancent d'environ 38 microsecondes par jour par rapport au sol. Sans correction, la position dériverait de plusieurs kilomètres par jour.",
+  "L'Europe a son propre système, Galileo, en service depuis 2016 et réputé pour sa précision.",
+  "À retenir : se localiser, c'est mesurer des temps de trajet de la lumière." ]},
+ { t: "La propulsion ionique", th: "Aérospatial", b: [
+  "Les moteurs de fusée classiques brûlent du carburant pour produire une poussée énorme pendant quelques minutes. Dans l'espace, une autre approche gagne du terrain : la propulsion électrique, ou ionique.",
+  "Un gaz, souvent du xénon, est ionisé (ses atomes perdent un électron). Un champ électrique accélère ces ions à des vitesses très élevées et les éjecte : c'est la poussée.",
+  "Cette poussée est minuscule, l'équivalent du poids d'une feuille de papier. Mais elle peut durer des mois et consomme très peu de carburant. Petit à petit, la sonde atteint des vitesses considérables.",
+  "Elle a propulsé la sonde Dawn vers Vesta et Cérès, la mission BepiColombo vers Mercure, et équipe de nombreux satellites de télécommunications.",
+  "À retenir : dans l'espace, la patience remplace la puissance." ]},
+ { t: "Les méga-constellations de satellites", th: "Aérospatial", b: [
+  "Pour apporter internet partout, des entreprises lancent des milliers de petits satellites en orbite basse, à environ 500 km d'altitude, bien plus près que les satellites géostationnaires à 36 000 km.",
+  "Comme ils sont proches, le signal fait un trajet court : la latence est faible, presque comme avec la fibre. Mais chaque satellite ne couvre qu'une petite zone et passe vite : il en faut énormément pour couvrir la Terre en permanence. Starlink en compte déjà des milliers.",
+  "Ces constellations soulèvent des questions : les traînées lumineuses gênent les astronomes, et le nombre d'objets en orbite augmente le risque de collisions et de débris.",
+  "Les opérateurs s'engagent à faire redescendre leurs satellites en fin de vie pour qu'ils se désintègrent dans l'atmosphère.",
+  "À retenir : internet par satellite est devenu rapide, au prix d'un ciel plus encombré." ]},
+ { t: "Le four à micro-ondes, une découverte par hasard", th: "Quotidien", b: [
+  "En 1945, l'ingénieur américain Percy Spencer travaille sur des magnétrons, des tubes qui produisent des ondes pour les radars. Il remarque qu'une barre chocolatée a fondu dans sa poche.",
+  "Il comprend que ces ondes chauffent les aliments et dépose un brevet. Les premiers fours sont énormes, il faudra attendre les années 1970 pour qu'ils entrent dans les cuisines.",
+  "Le principe : les micro-ondes font osciller les molécules d'eau des aliments des milliards de fois par seconde. Ce frottement produit de la chaleur directement dans l'aliment. C'est pour cela qu'une assiette sèche chauffe peu, et qu'un plat peut rester froid au centre s'il est épais.",
+  "Le métal réfléchit les ondes, d'où les étincelles avec une fourchette.",
+  "À retenir : une invention majeure peut naître d'une observation inattendue." ]},
+ { t: "Le QR code", th: "Quotidien", b: [
+  "Le QR code a été inventé en 1994 au Japon par Masahiro Hara, ingénieur chez Denso Wave, pour suivre les pièces dans les usines automobiles. Le code-barres classique ne contenait pas assez d'informations.",
+  "Le QR code stocke les données en deux dimensions, sur les lignes et les colonnes. Les trois grands carrés dans les coins permettent au lecteur de repérer l'orientation, quel que soit l'angle.",
+  "Sa force : la correction d'erreurs. Les données sont écrites avec de la redondance, si bien qu'un code abîmé jusqu'à environ 30 % peut encore être lu. C'est aussi ce qui permet de glisser un logo au milieu.",
+  "L'entreprise n'a pas fait payer son usage, ce qui explique sa diffusion mondiale.",
+  "À retenir : vérifie toujours l'adresse affichée avant d'ouvrir un QR code collé dans la rue." ]},
+ { t: "La LED bleue", th: "Quotidien", b: [
+  "Les LED rouges et vertes existaient depuis les années 1960, mais sans LED bleue, impossible de fabriquer une lumière blanche. Pendant trente ans, les chercheurs ont buté sur le problème.",
+  "Au début des années 1990, Isamu Akasaki, Hiroshi Amano et Shuji Nakamura ont réussi à produire des cristaux de nitrure de gallium de bonne qualité et à en faire des LED bleues efficaces. Ils ont reçu le prix Nobel de physique en 2014.",
+  "Pour obtenir du blanc, on recouvre une LED bleue d'une couche de phosphore jaune : le mélange paraît blanc à l'œil.",
+  "Les LED consomment bien moins que les ampoules à incandescence et durent beaucoup plus longtemps. Elles éclairent aussi les écrans de nos téléphones et télévisions.",
+  "À retenir : derrière chaque écran et chaque ampoule LED, il y a cette petite lumière bleue." ]},
+ { t: "Le scratch, inspiré d'une plante", th: "Quotidien", b: [
+  "En 1941, l'ingénieur suisse George de Mestral rentre de promenade avec son chien couvert de fleurs de bardane. Intrigué, il les observe au microscope : elles sont couvertes de minuscules crochets qui s'accrochent aux boucles des poils et des tissus.",
+  "Il imagine une fermeture fondée sur ce principe : une bande couverte de crochets et une autre couverte de boucles. Il dépose un brevet au début des années 1950 sous le nom de Velcro, contraction de « velours » et « crochet ».",
+  "C'est un exemple célèbre de biomimétisme : s'inspirer de la nature pour inventer. D'autres exemples : la forme du nez du TGV japonais inspirée du bec du martin-pêcheur, ou des surfaces autonettoyantes inspirées de la feuille de lotus.",
+  "À retenir : la nature a des millions d'années de recherche et développement d'avance." ]},
+ { t: "Les batteries sodium-ion", th: "Énergie", b: [
   "Presque toutes nos batteries rechargeables utilisent du lithium. Problème : ce métal est concentré dans quelques pays, son extraction consomme beaucoup d'eau et son prix varie énormément. Les chercheurs cherchent donc des alternatives, et le sodium arrive en tête.",
   "Le sodium, c'est l'élément du sel de cuisine : on en trouve partout, dans l'eau de mer comme dans le sol. Une batterie sodium-ion fonctionne sur le même principe qu'une lithium-ion : des ions voyagent d'une électrode à l'autre quand on charge ou décharge la batterie. Mais l'ion sodium est plus gros et plus lourd, ce qui oblige à concevoir d'autres matériaux pour l'accueillir.",
   "Résultat : à poids égal, une batterie sodium stocke moins d'énergie. En revanche, elle supporte mieux le froid, elle est moins sujette à l'emballement thermique (le phénomène qui provoque des incendies) et elle peut être fabriquée sans cobalt ni nickel.",
   "Les premiers modèles commerciaux sont arrivés au début des années 2020, notamment en Chine. Ils équipent des petites voitures urbaines, des deux-roues et surtout des systèmes de stockage stationnaire, qui gardent l'électricité solaire ou éolienne pour la restituer plus tard. Là, le poids importe peu : c'est le coût et la sécurité qui comptent.",
   "À retenir : le sodium ne remplacera pas le lithium partout, mais il pourrait devenir la batterie « du quotidien », bon marché et durable." ]},
- { t: "CRISPR, les ciseaux génétiques", th: "Science", b: [
+ { t: "CRISPR, les ciseaux génétiques", th: "Santé", b: [
   "CRISPR est un outil qui permet de modifier l'ADN avec une précision inédite. Son histoire commence chez les bactéries : pour se défendre contre les virus, elles gardent dans leur génome des fragments de l'ADN viral, comme une galerie de portraits d'ennemis.",
   "Quand le virus revient, la bactérie fabrique une copie de ce portrait sous forme d'ARN. Cet ARN guide une protéine, Cas9, jusqu'au virus, et Cas9 coupe son ADN. En 2012, Emmanuelle Charpentier et Jennifer Doudna ont compris qu'on pouvait reprogrammer ce guide pour viser n'importe quelle séquence d'ADN. Elles ont reçu le prix Nobel de chimie en 2020.",
   "Concrètement, on écrit un ARN guide qui correspond au gène visé, on l'associe à Cas9, et la protéine coupe à l'endroit voulu. La cellule répare ensuite la coupure, ce qui permet de désactiver un gène ou d'en corriger une version.",
   "Les applications sont nombreuses : recherche en laboratoire, plantes plus résistantes, et désormais médecine. Fin 2023, le premier traitement basé sur CRISPR a été autorisé pour soigner la drépanocytose et la bêta-thalassémie, deux maladies du sang.",
   "Mais modifier l'ADN pose aussi des questions éthiques, surtout lorsque les changements se transmettraient aux générations suivantes. La plupart des pays interdisent ces modifications sur l'embryon humain." ]},
- { t: "Ton horloge interne", th: "Santé", b: [
-  "Ton corps suit un rythme d'environ 24 heures : le rythme circadien. Il règle l'heure à laquelle tu as sommeil, ta température, ton appétit et la production de nombreuses hormones.",
-  "Le chef d'orchestre se trouve dans le cerveau, dans une petite zone appelée noyau suprachiasmatique, juste au-dessus du croisement des nerfs optiques. Ce n'est pas un hasard : la lumière captée par tes yeux est le principal signal qui remet ton horloge à l'heure chaque jour. Le prix Nobel de médecine 2017 a récompensé trois chercheurs qui ont décrit les gènes de cette horloge.",
-  "Le soir, quand la lumière baisse, ton cerveau libère de la mélatonine, l'hormone qui prépare au sommeil. Les écrans et les lumières fortes retardent cette libération, ce qui décale l'endormissement.",
-  "Trois habitudes simples aident ton horloge : t'exposer à la lumière du jour le matin, garder des horaires de coucher et de lever réguliers (même le week-end), et baisser les lumières une heure avant de dormir.",
-  "Ton cycle menstruel influence aussi le sommeil : en phase lutéale, la température corporelle est un peu plus élevée, ce qui peut rendre le sommeil plus léger. Ton journal de ressenti pourra t'aider à le vérifier sur toi." ]},
- { t: "Le télescope James Webb", th: "Espace", b: [
+ { t: "Le télescope James Webb", th: "Aérospatial", b: [
   "Lancé le 25 décembre 2021, le télescope spatial James Webb est le plus grand télescope jamais envoyé dans l'espace. Il ne tourne pas autour de la Terre : il se trouve à environ 1,5 million de kilomètres, en un point d'équilibre appelé L2, où il reste à l'abri de la chaleur du Soleil derrière un pare-soleil grand comme un court de tennis.",
   "Son miroir principal mesure 6,5 mètres. Trop grand pour tenir dans une fusée, il est fait de 18 segments hexagonaux qui se sont dépliés dans l'espace. Ils sont recouverts d'une fine couche d'or, qui reflète très bien l'infrarouge.",
   "Pourquoi l'infrarouge ? Parce que la lumière des galaxies les plus lointaines a voyagé si longtemps que l'expansion de l'Univers l'a étirée vers des longueurs d'onde plus grandes. Observer en infrarouge permet donc de remonter le temps, jusqu'à quelques centaines de millions d'années après le Big Bang.",
@@ -396,13 +557,7 @@ const SAVOIRS = [
   "La difficulté, c'est que les noyaux se repoussent. Pour qu'ils fusionnent, il faut un gaz chauffé à plus de 100 millions de degrés : un plasma. Aucun matériau ne résiste à une telle température, alors on le confine avec des champs magnétiques géants dans une machine en forme d'anneau, le tokamak.",
   "Le plus grand projet au monde, ITER, est en construction en France, à Cadarache dans les Bouches-du-Rhône, avec 35 pays partenaires. Une autre approche utilise des lasers pour comprimer une minuscule bille de combustible. En décembre 2022, le laboratoire américain NIF a pour la première fois obtenu plus d'énergie de la réaction que celle apportée par les lasers.",
   "Mais il reste un long chemin avant une centrale : produire plus d'énergie que toute l'installation n'en consomme, tenir la réaction dans la durée et rendre le tout rentable. La plupart des experts parlent de plusieurs décennies." ]},
- { t: "Ton microbiote intestinal", th: "Santé", b: [
-  "Ton intestin abrite des dizaines de milliers de milliards de micro-organismes, surtout des bactéries : c'est le microbiote intestinal. Leur nombre est du même ordre que celui des cellules de ton corps.",
-  "Ces bactéries ne sont pas des passagères : elles digèrent les fibres que tu ne sais pas digérer toi-même et les transforment en molécules utiles, comme des acides gras qui nourrissent la paroi de l'intestin. Elles participent aussi à l'éducation de ton système immunitaire et produisent certaines vitamines.",
-  "Les chercheurs étudient de près « l'axe intestin-cerveau » : l'intestin et le cerveau communiquent en permanence par le nerf vague, les hormones et le système immunitaire. Des liens ont été observés entre microbiote, stress et humeur, même si beaucoup de mécanismes restent à comprendre.",
-  "Ce qui semble favoriser un microbiote en bonne santé, c'est surtout la diversité : manger varié, beaucoup de végétaux différents (légumes, légumineuses, céréales complètes, fruits), et des aliments fermentés comme le yaourt ou le kéfir.",
-  "Les antibiotiques, utiles quand ils sont nécessaires, perturbent temporairement cet écosystème : c'est une des raisons de ne les prendre que sur prescription." ]},
- { t: "L'ARN messager", th: "Science", b: [
+ { t: "L'ARN messager", th: "Santé", b: [
   "Dans chacune de tes cellules, l'ADN contient les recettes de toutes tes protéines. Mais l'ADN reste dans le noyau. Pour fabriquer une protéine, la cellule en fait une copie temporaire : l'ARN messager, qui sort du noyau et sert de mode d'emploi aux usines de la cellule.",
   "L'idée de la médecine à ARN messager est d'apporter directement à la cellule un mode d'emploi choisi, par exemple celui d'une protéine du virus. La cellule la fabrique, le système immunitaire apprend à la reconnaître, puis l'ARN est dégradé en quelques jours. Il n'entre pas dans le noyau et ne modifie pas l'ADN.",
   "Pendant longtemps, l'ARN injecté provoquait une forte inflammation. Katalin Karikó et Drew Weissman ont découvert qu'en modifiant légèrement une de ses briques, on évitait cette réaction. Leurs travaux ont permis de développer très vite les vaccins contre le Covid-19, et leur ont valu le prix Nobel de médecine 2023.",
@@ -412,17 +567,15 @@ const SAVOIRS = [
   "Deux propriétés changent tout. La superposition : un qubit peut être dans une combinaison de 0 et de 1 jusqu'à ce qu'on le mesure. L'intrication : plusieurs qubits peuvent être liés de telle façon que leurs états ne se décrivent plus séparément. En combinant les deux, certains algorithmes explorent des problèmes d'une manière impossible pour un ordinateur classique.",
   "Attention, un ordinateur quantique n'est pas « plus rapide pour tout ». Il est prometteur pour des tâches précises : simuler des molécules pour créer des médicaments ou des matériaux, certains problèmes d'optimisation, et casser une partie des systèmes de chiffrement actuels.",
   "C'est pour cette dernière raison que de nouveaux standards de cryptographie « post-quantique » ont été publiés aux États-Unis en 2024 : ils doivent résister même à un futur ordinateur quantique.",
-  "Le grand défi reste la fragilité des qubits : la moindre perturbation (chaleur, vibration) détruit leur état. Beaucoup de machines fonctionnent près du zéro absolu, et corriger ces erreurs est aujourd'hui le cœur de la recherche." ]},
- { t: "Les 4 phases du cycle", th: "Corps", b: [
-  "Le cycle menstruel dure en moyenne 28 jours, mais tout cycle entre environ 21 et 35 jours est considéré comme courant. Il se découpe en quatre phases, pilotées par les hormones.",
-  "1. Les règles (environ 3 à 7 jours) : les hormones sont au plus bas. Fatigue et besoin de repos sont fréquents.",
-  "2. La phase folliculaire : le taux d'œstrogènes remonte pour préparer un ovule. Beaucoup de personnes ressentent un regain d'énergie, de motivation et de sociabilité.",
-  "3. L'ovulation : un pic d'hormone LH libère l'ovule, en général environ 14 jours avant les règles suivantes. C'est pour cela que l'application estime l'ovulation en comptant à rebours depuis la durée moyenne de ton cycle. C'est une estimation, pas une mesure.",
-  "4. La phase lutéale : la progestérone domine, la température corporelle augmente légèrement (de 0,3 à 0,5 °C environ). Appétit plus marqué, sommeil plus léger ou irritabilité peuvent apparaître en fin de phase.",
-  "Chaque corps est différent : c'est justement l'intérêt de noter ton ressenti au quotidien. Après quelques cycles, l'onglet Stats pourra te montrer tes propres tendances. Et si quelque chose t'inquiète (douleurs fortes, cycles très irréguliers), parles-en à un professionnel de santé." ]},
+  "Le grand défi reste la fragilité des qubits : la moindre perturbation (chaleur, vibration) détruit leur état. Beaucoup de machines fonctionnent près du zéro absolu, et corriger ces erreurs est aujourd'hui le cœur de la recherche." ]}
 ];
 const readMin = a => Math.max(1, Math.round(a.b.join(" ").split(/\s+/).length / 200));
-const savoirOfDay = s => SAVOIRS[Math.floor(parse(s).getTime() / 86400000) % SAVOIRS.length];
+const SAV_THEMES = ["Mécanique", "Santé", "Sport", "Auto / Moto", "Aéronautique", "Aérospatial", "Quotidien", "Énergie", "Technologie"];
+// Le savoir du jour est pris parmi les thèmes choisis dans Profil (tous si aucun choix)
+const savoirOfDay = s => {
+  const th = (typeof S !== "undefined" && S?.settings?.savThemes) || [], pool = th.length ? SAVOIRS.filter(a => th.includes(a.th)) : SAVOIRS, l = pool.length ? pool : SAVOIRS;
+  return l[Math.floor(parse(s).getTime() / 86400000) % l.length];
+};
 
 /* =========================================================
    3. STOCKAGE LOCAL + CHIFFREMENT
@@ -1962,6 +2115,9 @@ function viewProfil() {
         <label>Verrouillage automatique après</label><select data-ch="autoLock">${[1, 5, 15, 60].map(m => `<option value="${m}" ${S.settings.autoLock == m ? "selected" : ""}>${m} min en arrière-plan</option>`).join("")}</select>`
       : `<button class="btn" data-act="setPin">${ico("lock")} Créer un code</button>`}
     <div class="faint" style="margin-top:10px">Si tu oublies ton code, les données chiffrées sont irrécupérables. Pense à faire des sauvegardes.</div></div>
+  <div class="card"><h2>Savoir du jour</h2>
+    <p class="sub" style="margin-top:0">Une innovation expliquée chaque jour. Choisis les thèmes qui t'intéressent (aucun choisi = tous).</p>
+    <div class="row wrap" style="gap:6px">${SAV_THEMES.map(t => `<span class="chip ${(S.settings.savThemes || []).includes(t) ? "on" : ""}" data-act="savTheme" data-k="${t}">${t} <span class="faint">${SAVOIRS.filter(a => a.th === t).length}</span></span>`).join("")}</div></div>
   <div class="card"><h2>Apple Santé & Suunto</h2>
     <div class="faint" style="margin:-6px 0 8px">Version de l'appli : ${APP_VERSION}</div>
     <p class="sub" style="margin-top:0">Ton raccourci iPhone copie tes pas, ton sommeil et ton exercice du jour. Colle-les ici : les données restent sur ton appareil.</p>
@@ -2259,6 +2415,7 @@ const ACT = {
   delSeance: async el => { if (!(await ask("Supprimer cette séance et ses photos ?", "Supprimer"))) return; S.events = S.events.filter(x => x.id !== el.dataset.id); save(); },
   rmSPhoto: el => { draftSeance.photos.splice(Number(el.dataset.i), 1); $("#sphotos").innerHTML = thumbsHtml(); },
   galSort: el => { V.galSort = el.dataset.k; render(); },
+  savTheme: el => { const l = S.settings.savThemes = S.settings.savThemes || [], i = l.indexOf(el.dataset.k); if (i >= 0) l.splice(i, 1); else l.push(el.dataset.k); save(); },
   galF: el => { GF[el.dataset.k] = el.dataset.v; GF.n = 90; if (V.tab !== "galerie") V.tab = "galerie"; render(); },
   galMore: () => { GF.n += 90; render(); },
   galTag: el => { V.galTag = el.dataset.k; render(); },
@@ -2454,7 +2611,7 @@ const healthLine = d => [d.steps != null ? nf(d.steps) + " pas" : "", d.sleep !=
 const HKEYS = ["steps", "sleep", "exApple", "walkKm", "activeKcal", "restKcal", "hrRest", "hrAvg", "hrMin", "hrMax", "hrv", "skiKm", "swimKm", "bikeKm"];
 // Au-delà, une énergie « au repos » ne peut pas être en kcal : c'est une valeur en kilojoules
 const KJ_REST = 4000;
-const APP_VERSION = "2026-11-22 · podcasts, recherches";
+const APP_VERSION = "2026-11-22 · savoirs innovation";
 const kcalWarn = d => (Number(d.activeKcal) || 0) > 2500 || (Number(d.activeKcal) || 0) + (Number(d.restKcal) || 0) > 5000;
 function applyHealth({ days, workouts }) {
   const ks = Object.keys(days).sort(), nW = importWorkouts(workouts);
