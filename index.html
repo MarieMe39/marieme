@@ -65,6 +65,14 @@ h3{font-size:15px;margin:0 0 8px}
 input,textarea,select{font:inherit;color:var(--text);background:var(--card2);border:1px solid var(--line);
   border-radius:12px;padding:10px 12px;width:100%;outline:none}
 input:focus,textarea:focus,select:focus{border-color:var(--accent)}
+/* iPhone : sous 16 px, Safari zoome la page dès qu'on touche un champ (et la barre du bas se décale) */
+@media (pointer:coarse){input,textarea,select{font-size:16px}}
+/* Les champs date d'iOS ont une largeur minimale propre : on les force à rester dans leur case */
+input[type=date],input[type=time]{-webkit-appearance:none;appearance:none;min-width:0;max-width:100%;display:block;min-height:44px;text-align:left}
+input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and-time-value{text-align:left}
+div[style*="grid-template-columns"]>*{min-width:0}
+html,body{overflow-x:clip}
+body.kb nav.tabs{display:none}
 textarea{min-height:84px;resize:vertical}
 label{display:block;font-size:13px;color:var(--muted);margin:12px 0 5px}
 .seg{display:inline-flex;background:var(--card2);border-radius:12px;padding:3px;gap:2px}
@@ -976,7 +984,7 @@ function ring(val, goal, label, valTxt, k, color) {
 function todoRow(x, showDate) {
   return `<div class="todo ${x.done ? "done" : ""}">
     <button class="check ${x.done ? "on" : ""}" data-act="toggleTodo" data-id="${x.id}" aria-label="Cocher">${x.done ? "✓" : ""}</button>
-    <div class="grow"><span class="t">${esc(x.text)}</span>
+    <div class="grow" data-act="editTodo" data-id="${x.id}" style="cursor:pointer"><span class="t">${esc(x.text)}</span>
       ${x.carried && !x.done ? ` <span class="badge warn">reportée ${x.carried > 1 ? "×" + x.carried : ""}</span>` : ""}
       ${showDate ? ` <span class="faint">${fmtShort(x.date)}</span>` : ""}</div>
     <button class="x" data-act="delTodo" data-id="${x.id}" aria-label="Supprimer">×</button></div>`;
@@ -2338,6 +2346,15 @@ const ACT = {
   addWater: el => { const t = today(); setDay(t, { water: (Number(getDay(t).water) || 0) + Number(el.dataset.v) }); save(); toast("Eau ajoutée"); },
   toggleTodo: el => { const x = S.todos.find(x => x.id === el.dataset.id); x.done = !x.done; x.doneDate = x.done ? today() : null; if (!x.done && x.date < today()) x.date = today(); save(); },
   delTodo: el => { S.todos = S.todos.filter(x => x.id !== el.dataset.id); save(); },
+  editTodo: el => {
+    const x = S.todos.find(y => y.id === el.dataset.id); if (!x) return;
+    openSheet(`<form data-form="saveTodo" data-id="${x.id}">
+      <div class="row between"><h2 style="margin:0">Modifier la tâche</h2><button type="button" class="x" data-act="closeSheet">×</button></div>
+      <label>Tâche</label><input name="t" required value="${esc(x.text)}" autocomplete="off">
+      <label>Pour le</label><input name="d" type="date" required value="${x.date}">
+      <div class="row" style="margin-top:16px"><button type="button" class="btn danger" data-act="delTodoSheet" data-id="${x.id}">Supprimer</button><span class="grow"></span><button class="btn">Enregistrer</button></div></form>`);
+  },
+  delTodoSheet: el => { S.todos = S.todos.filter(x => x.id !== el.dataset.id); closeSheet(); save(); },
   toggleRead: () => { V.readOpen = !V.readOpen; render(); },
   markRead: () => { const t = today(), a = savoirOfDay(t); if (S.savoir[t]) delete S.savoir[t]; else { S.savoir[t] = a.t; toast("Un savoir de plus"); } const it = (S.library.culture || []).find(x => x.kind === "savoir" && x.date === t); if (it) it.done = !!S.savoir[t]; save(); },
   openCat: el => { V.cat = el.dataset.k; V.kind = "all"; V.disc = null; V.subject = null; render(); window.scrollTo(0, 0); },
@@ -2611,7 +2628,7 @@ const healthLine = d => [d.steps != null ? nf(d.steps) + " pas" : "", d.sleep !=
 const HKEYS = ["steps", "sleep", "exApple", "walkKm", "activeKcal", "restKcal", "hrRest", "hrAvg", "hrMin", "hrMax", "hrv", "skiKm", "swimKm", "bikeKm"];
 // Au-delà, une énergie « au repos » ne peut pas être en kcal : c'est une valeur en kilojoules
 const KJ_REST = 4000;
-const APP_VERSION = "2026-11-22 · savoirs innovation";
+const APP_VERSION = "2026-11-22 · tâches modifiables";
 const kcalWarn = d => (Number(d.activeKcal) || 0) > 2500 || (Number(d.activeKcal) || 0) + (Number(d.restKcal) || 0) > 5000;
 function applyHealth({ days, workouts }) {
   const ks = Object.keys(days).sort(), nW = importWorkouts(workouts);
@@ -2752,6 +2769,11 @@ document.addEventListener("submit", async e => {
     const ev = { id: uid(), date: d, time: "", title: disc.title, kind: "activite", cat: "sport", libId: disc.id, duration: Number(o.exApple) || 0, done: true, note: "", photos: [] };
     if (km && discFields(disc).includes("distance")) ev.distance = km;
     S.events.push(ev); save(); toast(`${disc.title} ajouté au ${fmtShort(d)} ✓`); return;
+  }
+  if (k === "saveTodo") {
+    const x = S.todos.find(y => y.id === form.dataset.id), t = form.t.value.trim(); if (!x || !t) return;
+    x.text = t; if (form.d.value && form.d.value !== x.date) { x.date = form.d.value; x.carried = 0; }
+    closeSheet(); save(); return;
   }
   if (k === "addTodo") {
     const v = form.t.value.trim(); if (!v) return;
@@ -2898,6 +2920,11 @@ async function boot() {
   else { S = normalize(rec && rec.data ? JSON.parse(rec.data) : null); if (!rec) persist(); start(); }
 }
 boot();
+// Clavier ouvert : on cache la barre du bas pour qu'elle ne remonte pas au milieu de l'écran
+document.addEventListener("focusin", e => { if (e.target.matches?.("input:not([type=checkbox]):not([type=file]),textarea")) document.body.classList.add("kb"); });
+document.addEventListener("focusout", () => setTimeout(() => { if (!document.activeElement?.matches?.("input,textarea")) document.body.classList.remove("kb"); }, 100));
+// Après la fermeture du clavier, iOS laisse parfois la page décalée : on la remet en place
+window.visualViewport?.addEventListener("resize", () => { if (!document.body.classList.contains("kb") && window.scrollX) window.scrollTo(0, window.scrollY); });
 // Appli installable et utilisable hors connexion (fichier sw.js)
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>
