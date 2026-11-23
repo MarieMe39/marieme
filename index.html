@@ -1441,6 +1441,12 @@ function viewDisc() {
     ${fl.filter(k => FIELDS[k].sum && sum(k)).map(k => `<div class="tile"><div class="k">${FIELDS[k].sum}</div><div class="val" style="font-size:20px">${FIELDS[k].tot(sum(k))}</div></div>`).join("")}
   </div></div>
 
+  <div class="card"><div class="sec-h"><h2>${ico("spark")} Inspirations</h2>
+      <label class="btn sm hl filebtn">${ico("plus")} Photos<input type="file" accept="image/*,video/*" multiple data-ch="inspoAdd" hidden></label></div>
+    ${(it.inspo || []).length ? `<div class="gal g3">${it.inspo.map((src, i) => `<div class="ph" data-act="inspoOpen" data-i="${i}"><img src="${src}" alt="" loading="lazy"></div>`).join("")}</div>`
+      : `<div class="empty">${c.id === "mecatro" ? "Tes idées, schémas trouvés, projets qui t'inspirent…" : c.id === "manuel" ? "Modèles, couleurs, techniques, créations qui t'inspirent…" : "Figures, tenues, lieux, vidéos qui t'inspirent…"} Ajoute-les ici, sans passer par une étape ou une séance.</div>`}
+  </div>
+
   <div class="card"><div class="sec-h"><h2>${ico("target")} ${L.goals}</h2><span class="badge">${it.goals.filter(g => !g.done).length} en cours</span></div>
     ${sorted.length ? subLines("disc", "goals", sorted, { check: true, open: "goal" }) : `<div class="empty">${L.goalEmpty}</div>`}
     <form class="subform" data-form="addSub" data-scope="disc" data-list="goals"><input name="t" placeholder="Ajouter…" autocomplete="off"><input name="d" type="date" title="Échéance (facultatif)"><button class="btn" aria-label="Ajouter">${ico("plus")}</button></form>
@@ -1901,7 +1907,7 @@ function viewTravel() {
    ========================================================= */
 const GF = { act: "all", year: "all", place: "all", tag: "all", n: 90 };
 // Étiquettes de photos : S.ptags["m:id"] = { t: ["Paysage", …], p: ["Léa", …] }
-const PTYPES = ["Paysage", "Activité", "Personnes", "Famille", "Amis", "Animaux"];
+const PTYPES = ["Paysage", "Activité", "Personnes", "Famille", "Amis", "Animaux", "Inspiration"];
 const ptag = src => S.ptags[src] || { t: [], p: [] };
 const hasTag = (src, k) => k === "all" || (k.startsWith("p:") ? ptag(src).p.includes(k.slice(2)) : ptag(src).t.includes(k.slice(2)));
 function addTags(src, t = [], p = []) {
@@ -1931,7 +1937,7 @@ function galleryItems() {
   for (const t of S.travel.trips) add(t.photos, { date: t.start || "", place: t.place || "", act: "Voyage · " + t.title, ref: "trip", id: t.id });
   for (const m of S.travel.moments) if (m.done) add(m.photos, { date: m.doneDate || "", place: m.donePlace || m.place || "", act: m.title, ref: "moment", id: m.id });
   for (const p of S.life.projects) add(p.photos, { date: "", place: "", act: "Projet · " + p.title, ref: "life", id: p.id });
-  for (const [cid, list] of Object.entries(S.library)) for (const it of list || []) if (it.kind === "discipline") add(it.photos, { date: "", place: "", act: it.title, ref: "lib", id: it.id });
+  for (const [cid, list] of Object.entries(S.library)) for (const it of list || []) if (it.kind === "discipline") { add(it.photos, { date: "", place: "", act: it.title, ref: "lib", id: it.id }); add(it.inspo, { date: "", place: "", act: it.title, ref: "lib", id: it.id }); }
   for (const g of S.gallery) out.push({ src: g.src, date: g.date || "", place: g.place || "", act: g.album === "famille" ? "Famille" : "", album: g.album || "", ref: "loose", id: g.id, gps: g.gps });
   return out;
 }
@@ -2436,6 +2442,13 @@ const ACT = {
   galF: el => { GF[el.dataset.k] = el.dataset.v; GF.n = 90; if (V.tab !== "galerie") V.tab = "galerie"; render(); },
   galMore: () => { GF.n += 90; render(); },
   galTag: el => { V.galTag = el.dataset.k; render(); },
+  inspoOpen: el => {
+    const it = findItem(V.disc)[1], src = it?.inspo?.[Number(el.dataset.i)]; if (!src) return;
+    openSheet(`<div class="row between"><div><div class="faint">Inspiration</div><h2 style="margin:2px 0 0">${esc(it.title)}</h2></div><button class="x" data-act="closeSheet">×</button></div>
+      ${mediaView(src)}${tagEditor(src)}
+      <div class="row" style="margin-top:14px"><span class="grow"></span><button class="btn ghost" data-act="inspoDel" data-i="${el.dataset.i}">Supprimer</button></div>`);
+  },
+  inspoDel: async el => { if (!(await ask("Retirer cette inspiration ?", "Supprimer"))) return; const it = findItem(V.disc)[1]; it.inspo.splice(Number(el.dataset.i), 1); save(); },
   entTag: el => { V.galTag = el.dataset.k; const o = findEnt(el.dataset.kind, el.dataset.id); if (o) openSheet(entDetail(el.dataset.kind, o)); },
   photoSrc: el => { const x = galleryItems().find(y => y.src === el.dataset.src); if (x) galPhotoSheet(x); },
   pTag: el => { const src = el.dataset.src, o = S.ptags[src] = S.ptags[src] || { t: [], p: [] }, l = o[el.dataset.k], v = el.dataset.v, i = l.indexOf(v);
@@ -2628,7 +2641,7 @@ const healthLine = d => [d.steps != null ? nf(d.steps) + " pas" : "", d.sleep !=
 const HKEYS = ["steps", "sleep", "exApple", "walkKm", "activeKcal", "restKcal", "hrRest", "hrAvg", "hrMin", "hrMax", "hrv", "skiKm", "swimKm", "bikeKm"];
 // Au-delà, une énergie « au repos » ne peut pas être en kcal : c'est une valeur en kilojoules
 const KJ_REST = 4000;
-const APP_VERSION = "2026-11-22 · tâches modifiables";
+const APP_VERSION = "2026-11-23 · inspirations";
 const kcalWarn = d => (Number(d.activeKcal) || 0) > 2500 || (Number(d.activeKcal) || 0) + (Number(d.restKcal) || 0) > 5000;
 function applyHealth({ days, workouts }) {
   const ks = Object.keys(days).sort(), nW = importWorkouts(workouts);
@@ -2717,6 +2730,11 @@ document.addEventListener("change", async e => {
     $("#sheet .sheet").innerHTML = itemForm(draftItem);
   }
   else if (k === "ficheFile") { const f = el.files[0]; if (f) el.closest("form").data.value = await f.text(); }
+  else if (k === "inspoAdd") {
+    const files = [...el.files]; el.value = ""; const it = findItem(V.disc)[1]; if (!files.length || !it) return;
+    const refs = await storeFiles(files); it.inspo = [...(it.inspo || []), ...refs]; for (const r of refs) addTags(r, ["Inspiration"]);
+    save(); toast(`${refs.length} inspiration${refs.length > 1 ? "s" : ""} ajoutée${refs.length > 1 ? "s" : ""}`);
+  }
   else if (k === "galImport") { const files = [...el.files], form = el.closest("form"), opt = form ? formTags(form) : undefined; el.value = ""; if (!files.length) return; closeSheet(); await galImport(files, opt); }
   else if (k === "galF") { GF[el.dataset.k] = el.value; GF.n = 90; render(); }
   else if (k === "seancePhotos") {
