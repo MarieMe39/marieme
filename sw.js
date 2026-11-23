@@ -1,6 +1,6 @@
 // MarieMe : garde une copie de l'appli sur l'appareil pour qu'elle s'ouvre même sans réseau.
 // Tes données ne passent jamais par ici : elles restent dans le stockage de l'appareil.
-const CACHE = "marieme-v10";
+const CACHE = "marieme-v11";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/apple-touch-icon.png"];
 
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });
